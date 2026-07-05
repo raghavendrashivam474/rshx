@@ -71,3 +71,49 @@ class TestExecuteExternal:
 
         captured = capsys.readouterr()
         assert "1" in captured.out
+
+
+class TestExecuteBuiltinException:
+    def test_builtin_exception_prints_error(self, state: ShellState, capsys):
+        """If a built-in raises an unexpected exception, an error is displayed."""
+        def broken_handler(args, shell_state):
+            raise RuntimeError("something went wrong")
+
+        cmd = ParsedCommand(name="help", args=[], raw="help")
+
+        with patch(
+            "rshx.core.executor.BUILTIN_REGISTRY",
+            {"help": broken_handler},
+        ):
+            execute(cmd, state)
+
+        captured = capsys.readouterr()
+        assert "Error" in captured.out
+
+
+class TestExecuteExternalPermissionError:
+    def test_permission_error_prints_error(self, state: ShellState, capsys):
+        """A PermissionError from subprocess should print a friendly message."""
+        cmd = ParsedCommand(name="somebin", args=[], raw="somebin")
+
+        with patch(
+            "rshx.core.executor.subprocess.run",
+            side_effect=PermissionError,
+        ):
+            execute(cmd, state)
+
+        captured = capsys.readouterr()
+        assert "Permission denied" in captured.out
+
+    def test_unexpected_exception_prints_error(self, state: ShellState, capsys):
+        """Any unexpected exception from subprocess should print an error."""
+        cmd = ParsedCommand(name="somebin", args=[], raw="somebin")
+
+        with patch(
+            "rshx.core.executor.subprocess.run",
+            side_effect=OSError("disk failure"),
+        ):
+            execute(cmd, state)
+
+        captured = capsys.readouterr()
+        assert "Error" in captured.out
