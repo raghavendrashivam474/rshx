@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "rshx"
+version = "0.1.0"
+description = "RSHX - Raghav Shell eXtended"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "prompt_toolkit>=3.0.47",
+    "colorama>=0.4.6",
+]
+
+[project.scripts]
+rshx = "main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
