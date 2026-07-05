@@ -1,13 +1,6 @@
-"""
+ï»¿"""
 parser.py
----------
-Responsible for transforming a raw input string into a structured
-command representation that the executor and built-in handlers
-can consume.
-
-Keeps parsing logic fully decoupled from execution logic so that
-future sprints can extend parsing (pipes, redirects, variables)
-without touching the executor.
+Transforms raw input strings into structured ParsedCommand objects.
 """
 
 import shlex
@@ -26,7 +19,7 @@ class ParsedCommand:
     args : list[str]
         Ordered list of arguments following the command name.
     raw : str
-        The original, unmodified input string for diagnostics.
+        The original unmodified input string.
     """
     name: str
     args: list[str] = field(default_factory=list)
@@ -41,9 +34,6 @@ def parse(raw_input: str) -> ParsedCommand:
     """
     Parse a raw input string into a ParsedCommand.
 
-    Uses shlex.split for POSIX-style tokenisation so that quoted
-    strings are treated as single tokens.
-
     Parameters
     ----------
     raw_input : str
@@ -52,14 +42,12 @@ def parse(raw_input: str) -> ParsedCommand:
     Returns
     -------
     ParsedCommand
-        A structured command object.  Returns an empty command when
-        the input contains only whitespace.
+        A structured command object.
 
     Raises
     ------
     ValueError
-        When the input string contains mismatched quotes or other
-        shlex tokenisation errors.
+        When the input contains mismatched quotes or tokenisation errors.
     """
     stripped: str = raw_input.strip()
 
@@ -69,7 +57,7 @@ def parse(raw_input: str) -> ParsedCommand:
     try:
         tokens: list[str] = shlex.split(stripped)
     except ValueError as exc:
-        raise ValueError(f"Parse error — {exc}") from exc
+        raise ValueError(f"Parse error - {exc}") from exc
 
     name: str = tokens[0].lower()
     args: list[str] = tokens[1:]

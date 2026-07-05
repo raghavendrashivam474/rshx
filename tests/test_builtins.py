@@ -1,10 +1,6 @@
-"""
+﻿"""
 test_builtins.py
-----------------
 Unit tests for rshx.commands.builtins.
-
-ShellState is imported and instantiated directly so tests remain
-fast and do not spin up a full REPL session.
 """
 
 import os
@@ -22,10 +18,6 @@ from rshx.commands.builtins import (
 from rshx.core.repl import ShellState
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
 @pytest.fixture()
 def state(tmp_path: Path) -> ShellState:
     """Return a fresh ShellState rooted at a temporary directory."""
@@ -33,19 +25,11 @@ def state(tmp_path: Path) -> ShellState:
     return ShellState(cwd=tmp_path)
 
 
-# ---------------------------------------------------------------------------
-# Registry
-# ---------------------------------------------------------------------------
-
 class TestBuiltinRegistry:
     def test_all_expected_builtins_are_registered(self):
         expected = {"help", "clear", "pwd", "cd", "exit"}
         assert expected == set(BUILTIN_REGISTRY.keys())
 
-
-# ---------------------------------------------------------------------------
-# pwd
-# ---------------------------------------------------------------------------
 
 class TestCmdPwd:
     def test_prints_current_directory(self, state: ShellState, capsys):
@@ -53,10 +37,6 @@ class TestCmdPwd:
         captured = capsys.readouterr()
         assert str(state.cwd) in captured.out
 
-
-# ---------------------------------------------------------------------------
-# cd
-# ---------------------------------------------------------------------------
 
 class TestCmdCd:
     def test_cd_to_valid_subdirectory(self, state: ShellState, tmp_path: Path):
@@ -69,9 +49,7 @@ class TestCmdCd:
         cmd_cd([], state)
         assert state.cwd == Path.home().resolve()
 
-    def test_cd_to_nonexistent_directory_prints_error(
-        self, state: ShellState, capsys
-    ):
+    def test_cd_to_nonexistent_directory_prints_error(self, state: ShellState, capsys):
         original_cwd = state.cwd
         cmd_cd(["does_not_exist"], state)
         captured = capsys.readouterr()
@@ -93,20 +71,12 @@ class TestCmdCd:
         assert state.cwd == original_cwd
 
 
-# ---------------------------------------------------------------------------
-# exit
-# ---------------------------------------------------------------------------
-
 class TestCmdExit:
     def test_exit_sets_running_false(self, state: ShellState, capsys):
         assert state.running is True
         cmd_exit([], state)
         assert state.running is False
 
-
-# ---------------------------------------------------------------------------
-# help
-# ---------------------------------------------------------------------------
 
 class TestCmdHelp:
     def test_help_output_contains_all_builtins(self, state: ShellState, capsys):

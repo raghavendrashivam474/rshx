@@ -1,18 +1,6 @@
-"""
+ï»¿"""
 executor.py
------------
 Handles execution of parsed commands.
-
-Execution flow
---------------
-1. Check whether the command name matches a registered built-in.
-2. If yes  — delegate to the built-in handler.
-3. If no   — attempt to run the command as an external process via
-             subprocess, inheriting the shell's current working
-             directory.
-
-Keeps execution strategy details out of the REPL so the REPL
-remains a thin orchestration layer.
 """
 
 import subprocess
@@ -46,24 +34,15 @@ def execute(command: ParsedCommand, shell_state: "ShellState") -> None:
         _execute_external(command, shell_state)
 
 
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
-
 def _execute_builtin(
     command: ParsedCommand,
     shell_state: "ShellState",
 ) -> None:
-    """
-    Dispatch to the appropriate built-in command handler.
-
-    Wraps the call in a try/except so that an unexpected error in a
-    built-in command never crashes the entire REPL.
-    """
+    """Dispatch to the appropriate built-in command handler."""
     handler = BUILTIN_REGISTRY[command.name]
     try:
         handler(command.args, shell_state)
-    except Exception as exc:                          # noqa: BLE001
+    except Exception as exc:
         print_error(f"Built-in '{command.name}' raised an unexpected error: {exc}")
 
 
@@ -71,19 +50,7 @@ def _execute_external(
     command: ParsedCommand,
     shell_state: "ShellState",
 ) -> None:
-    """
-    Run an external system command as a child process.
-
-    Design decisions
-    ----------------
-    - shell=False   : safer; avoids shell-injection risks.
-    - cwd           : inherited from shell_state so that external
-                      tools see the directory the user navigated to.
-    - check=False   : we handle non-zero exit codes ourselves so we
-                      can display a meaningful message.
-    - FileNotFoundError  : command does not exist on PATH.
-    - PermissionError    : binary exists but is not executable.
-    """
+    """Run an external system command as a child process."""
     argv: list[str] = [command.name, *command.args]
 
     try:
@@ -108,5 +75,5 @@ def _execute_external(
     except PermissionError:
         print_error(f"Permission denied: cannot execute '{command.name}'.")
 
-    except Exception as exc:                          # noqa: BLE001
+    except Exception as exc:
         print_error(f"Unexpected error while running '{command.name}': {exc}")

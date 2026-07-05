@@ -1,8 +1,6 @@
-"""
+ï»¿"""
 rshx
-----
-RSHX — Raghav Shell eXtended.
-Top-level package.
+RSHX - Raghav Shell eXtended. Top-level package.
 """
 
 __version__ = "0.1.0"

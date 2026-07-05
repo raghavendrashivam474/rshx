@@ -1,19 +1,6 @@
-"""
+ï»¿"""
 repl.py
--------
-The Read–Evaluate–Print Loop — the heart of RSHX.
-
-Responsibilities
-----------------
-- Maintain mutable shell state (cwd, running flag).
-- Display the prompt and read user input via prompt_toolkit.
-- Delegate parsing to core.parser.
-- Delegate execution to core.executor.
-- Handle all input-level exceptions (KeyboardInterrupt, EOFError).
-
-ShellState is defined here because the REPL owns the lifecycle of
-the shell session.  Builtins and the executor receive it by
-reference so they can mutate cwd and running without tight coupling.
+The Read-Evaluate-Print Loop - the heart of RSHX.
 """
 
 from dataclasses import dataclass, field
@@ -27,10 +14,6 @@ from rshx.core.executor import execute
 from rshx.utils.display import print_error, print_banner, initialise_display
 
 
-# ---------------------------------------------------------------------------
-# Shell state
-# ---------------------------------------------------------------------------
-
 @dataclass
 class ShellState:
     """
@@ -39,8 +22,7 @@ class ShellState:
     Attributes
     ----------
     cwd : Path
-        The shell's current working directory.  Initialised to the
-        real working directory of the process at launch.
+        The shell's current working directory.
     running : bool
         When set to False the REPL loop exits cleanly.
     """
@@ -48,17 +30,8 @@ class ShellState:
     running: bool = True
 
 
-# ---------------------------------------------------------------------------
-# Prompt builder
-# ---------------------------------------------------------------------------
-
 def _build_prompt(state: ShellState) -> HTML:
-    """
-    Build the prompt string shown to the user.
-
-    Format:  RSHX  <cwd>  >
-    Uses HTML formatting supported by prompt_toolkit.
-    """
+    """Build the prompt string shown to the user."""
     cwd_display: str = str(state.cwd)
 
     return HTML(
@@ -68,17 +41,8 @@ def _build_prompt(state: ShellState) -> HTML:
     )
 
 
-# ---------------------------------------------------------------------------
-# REPL
-# ---------------------------------------------------------------------------
-
 def run_shell() -> None:
-    """
-    Start and run the RSHX interactive shell.
-
-    This function blocks until the user exits (via the 'exit'
-    command, Ctrl-C, or Ctrl-D).
-    """
+    """Start and run the RSHX interactive shell."""
     initialise_display()
     print_banner()
 
@@ -90,12 +54,10 @@ def run_shell() -> None:
             raw_input: str = session.prompt(_build_prompt(state))
 
         except KeyboardInterrupt:
-            # Ctrl-C — cancel current line, continue the loop
             print()
             continue
 
         except EOFError:
-            # Ctrl-D — treat as exit
             print()
             break
 

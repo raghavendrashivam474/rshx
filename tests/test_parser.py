@@ -1,10 +1,6 @@
-"""
+﻿"""
 test_parser.py
---------------
 Unit tests for rshx.core.parser.
-
-Tests are intentionally kept small and focused.  Each test covers
-one specific behaviour of the parse() function.
 """
 
 import pytest
