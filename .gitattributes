@@ -1,0 +1,8 @@
+﻿# Normalise all Python and text files to LF in the repository
+*.py    text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.toml  text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.json  text eol=lf
