@@ -16,24 +16,16 @@ from rshx.commands.builtins import (
     cmd_exit,
     cmd_help,
     BUILTIN_REGISTRY,
+    HELP_DATA,
 )
 from rshx.core.repl import ShellState
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
 @pytest.fixture()
 def state(tmp_path: Path) -> ShellState:
-    """Return a fresh ShellState rooted at a temporary directory."""
     os.chdir(tmp_path)
     return ShellState(cwd=tmp_path)
 
-
-# ---------------------------------------------------------------------------
-# Registry
-# ---------------------------------------------------------------------------
 
 class TestBuiltinRegistry:
     def test_all_expected_builtins_are_registered(self):
@@ -41,9 +33,42 @@ class TestBuiltinRegistry:
         assert expected == set(BUILTIN_REGISTRY.keys())
 
 
-# ---------------------------------------------------------------------------
-# pwd
-# ---------------------------------------------------------------------------
+class TestHelpData:
+    def test_all_builtins_have_help_entries(self):
+        for name in BUILTIN_REGISTRY:
+            assert name in HELP_DATA
+
+    def test_each_entry_has_required_keys(self):
+        required = {"description", "usage", "examples", "notes"}
+        for name, data in HELP_DATA.items():
+            assert required == set(data.keys()), f"Missing keys in help for '{name}'"
+
+
+class TestCmdHelp:
+    def test_help_no_args_shows_all_commands(self, state: ShellState, capsys):
+        cmd_help([], state)
+        captured = capsys.readouterr()
+        for name in BUILTIN_REGISTRY:
+            assert name in captured.out
+
+    def test_help_with_valid_command_shows_detail(self, state: ShellState, capsys):
+        cmd_help(["cd"], state)
+        captured = capsys.readouterr()
+        assert "cd" in captured.out
+        assert "Usage" in captured.out or "usage" in captured.out.lower()
+        assert "Examples" in captured.out or "examples" in captured.out.lower()
+
+    def test_help_with_invalid_command_shows_error(self, state: ShellState, capsys):
+        cmd_help(["notacommand"], state)
+        captured = capsys.readouterr()
+        assert "Error" in captured.out
+
+    def test_help_for_each_builtin(self, state: ShellState, capsys):
+        for name in BUILTIN_REGISTRY:
+            cmd_help([name], state)
+            captured = capsys.readouterr()
+            assert name in captured.out
+
 
 class TestCmdPwd:
     def test_prints_current_directory(self, state: ShellState, capsys):
@@ -51,10 +76,6 @@ class TestCmdPwd:
         captured = capsys.readouterr()
         assert str(state.cwd) in captured.out
 
-
-# ---------------------------------------------------------------------------
-# cd
-# ---------------------------------------------------------------------------
 
 class TestCmdCd:
     def test_cd_to_valid_subdirectory(self, state: ShellState, tmp_path: Path):
@@ -67,9 +88,7 @@ class TestCmdCd:
         cmd_cd([], state)
         assert state.cwd == Path.home().resolve()
 
-    def test_cd_to_nonexistent_directory_prints_error(
-        self, state: ShellState, capsys
-    ):
+    def test_cd_to_nonexistent_directory_prints_error(self, state: ShellState, capsys):
         original_cwd = state.cwd
         cmd_cd(["does_not_exist"], state)
         captured = capsys.readouterr()
@@ -81,9 +100,7 @@ class TestCmdCd:
         captured = capsys.readouterr()
         assert "Error" in captured.out
 
-    def test_cd_to_file_prints_error(
-        self, state: ShellState, tmp_path: Path, capsys
-    ):
+    def test_cd_to_file_prints_error(self, state: ShellState, tmp_path: Path, capsys):
         f = tmp_path / "file.txt"
         f.write_text("hello")
         original_cwd = state.cwd
@@ -93,15 +110,10 @@ class TestCmdCd:
         assert state.cwd == original_cwd
 
 
-# ---------------------------------------------------------------------------
-# cd — permission error paths
-# ---------------------------------------------------------------------------
-
 class TestCmdCdPermissionError:
     def test_cd_resolve_permission_error_prints_error(
         self, state: ShellState, tmp_path: Path, capsys
     ):
-        """A PermissionError during path resolution should print an error."""
         sub = tmp_path / "locked"
         sub.mkdir()
         original_cwd = state.cwd
@@ -116,7 +128,6 @@ class TestCmdCdPermissionError:
     def test_cd_chdir_permission_error_prints_error(
         self, state: ShellState, tmp_path: Path, capsys
     ):
-        """A PermissionError from os.chdir should print an error."""
         sub = tmp_path / "locked"
         sub.mkdir()
 
@@ -127,37 +138,16 @@ class TestCmdCdPermissionError:
         assert "Error" in captured.out
 
 
-# ---------------------------------------------------------------------------
-# clear
-# ---------------------------------------------------------------------------
-
 class TestCmdClear:
     def test_clear_calls_os_system(self, state: ShellState):
-        """cmd_clear should invoke os.system with the correct command."""
         with patch("rshx.commands.builtins.os.system") as mock_system:
             cmd_clear([], state)
         expected = "cls" if os.name == "nt" else "clear"
         mock_system.assert_called_once_with(expected)
 
 
-# ---------------------------------------------------------------------------
-# exit
-# ---------------------------------------------------------------------------
-
 class TestCmdExit:
     def test_exit_sets_running_false(self, state: ShellState, capsys):
         assert state.running is True
         cmd_exit([], state)
         assert state.running is False
-
-
-# ---------------------------------------------------------------------------
-# help
-# ---------------------------------------------------------------------------
-
-class TestCmdHelp:
-    def test_help_output_contains_all_builtins(self, state: ShellState, capsys):
-        cmd_help([], state)
-        captured = capsys.readouterr()
-        for name in BUILTIN_REGISTRY:
-            assert name in captured.out

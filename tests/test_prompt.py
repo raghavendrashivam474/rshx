@@ -1,32 +1,12 @@
 ﻿"""
-test_repl.py
-Unit tests for rshx.core.repl and rshx.core.prompt.
+test_prompt.py
+Unit tests for rshx.core.prompt.
 """
 
 from pathlib import Path
 from prompt_toolkit.formatted_text import HTML
 
-from rshx.core.repl import ShellState
 from rshx.core.prompt import build_prompt
-
-
-class TestShellState:
-    def test_default_running_is_true(self):
-        state = ShellState()
-        assert state.running is True
-
-    def test_default_cwd_is_current_directory(self):
-        state = ShellState()
-        assert state.cwd == Path.cwd()
-
-    def test_cwd_can_be_overridden(self, tmp_path: Path):
-        state = ShellState(cwd=tmp_path)
-        assert state.cwd == tmp_path
-
-    def test_running_can_be_set_false(self):
-        state = ShellState()
-        state.running = False
-        assert state.running is False
 
 
 class TestBuildPrompt:

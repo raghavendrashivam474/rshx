@@ -1,2 +1,2 @@
-prompt_toolkit>=3.0.47
+﻿prompt_toolkit>=3.0.47
 colorama>=0.4.6

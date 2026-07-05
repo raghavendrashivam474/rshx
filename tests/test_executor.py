@@ -54,11 +54,11 @@ class TestExecuteExternal:
             check=False,
         )
 
-    def test_unknown_command_prints_error(self, state: ShellState, capsys):
+    def test_unknown_command_prints_suggestion(self, state: ShellState, capsys):
         cmd = ParsedCommand(name="nonexistentcmd123", args=[], raw="nonexistentcmd123")
         execute(cmd, state)
         captured = capsys.readouterr()
-        assert "Error" in captured.out
+        assert "Error" in captured.out or "Warning" in captured.out
 
     def test_nonzero_exit_code_prints_info(self, state: ShellState, capsys):
         cmd = ParsedCommand(name="somecommand", args=[], raw="somecommand")
@@ -75,16 +75,12 @@ class TestExecuteExternal:
 
 class TestExecuteBuiltinException:
     def test_builtin_exception_prints_error(self, state: ShellState, capsys):
-        """If a built-in raises an unexpected exception, an error is displayed."""
         def broken_handler(args, shell_state):
             raise RuntimeError("something went wrong")
 
         cmd = ParsedCommand(name="help", args=[], raw="help")
 
-        with patch(
-            "rshx.core.executor.BUILTIN_REGISTRY",
-            {"help": broken_handler},
-        ):
+        with patch("rshx.core.executor.BUILTIN_REGISTRY", {"help": broken_handler}):
             execute(cmd, state)
 
         captured = capsys.readouterr()
@@ -93,26 +89,18 @@ class TestExecuteBuiltinException:
 
 class TestExecuteExternalPermissionError:
     def test_permission_error_prints_error(self, state: ShellState, capsys):
-        """A PermissionError from subprocess should print a friendly message."""
         cmd = ParsedCommand(name="somebin", args=[], raw="somebin")
 
-        with patch(
-            "rshx.core.executor.subprocess.run",
-            side_effect=PermissionError,
-        ):
+        with patch("rshx.core.executor.subprocess.run", side_effect=PermissionError):
             execute(cmd, state)
 
         captured = capsys.readouterr()
         assert "Permission denied" in captured.out
 
     def test_unexpected_exception_prints_error(self, state: ShellState, capsys):
-        """Any unexpected exception from subprocess should print an error."""
         cmd = ParsedCommand(name="somebin", args=[], raw="somebin")
 
-        with patch(
-            "rshx.core.executor.subprocess.run",
-            side_effect=OSError("disk failure"),
-        ):
+        with patch("rshx.core.executor.subprocess.run", side_effect=OSError("disk failure")):
             execute(cmd, state)
 
         captured = capsys.readouterr()

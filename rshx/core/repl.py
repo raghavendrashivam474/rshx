@@ -1,18 +1,33 @@
 ﻿"""
 repl.py
+-------
 The Read-Evaluate-Print Loop - the heart of RSHX.
+
+Sprint 1 changes
+----------------
+- PromptSession now receives history and completer.
+- Prompt rendering delegated to core.prompt.
+- History management delegated to core.history.
+- Completion delegated to core.completer.
 """
 
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
+from rshx.core.history import get_history
+from rshx.core.completer import RshxCompleter
+from rshx.core.prompt import build_prompt
 from rshx.core.parser import parse, ParsedCommand
 from rshx.core.executor import execute
 from rshx.utils.display import print_error, print_banner, initialise_display
 
+
+# ---------------------------------------------------------------------------
+# Shell state
+# ---------------------------------------------------------------------------
 
 @dataclass
 class ShellState:
@@ -30,16 +45,9 @@ class ShellState:
     running: bool = True
 
 
-def _build_prompt(state: ShellState) -> HTML:
-    """Build the prompt string shown to the user."""
-    cwd_display: str = str(state.cwd)
-
-    return HTML(
-        f"<ansigreen><b>RSHX</b></ansigreen> "
-        f"<ansicyan>{cwd_display}</ansicyan>"
-        f"<ansiwhite> &gt; </ansiwhite>"
-    )
-
+# ---------------------------------------------------------------------------
+# REPL
+# ---------------------------------------------------------------------------
 
 def run_shell() -> None:
     """Start and run the RSHX interactive shell."""
@@ -47,11 +55,17 @@ def run_shell() -> None:
     print_banner()
 
     state: ShellState = ShellState()
-    session: PromptSession = PromptSession()
+
+    session: PromptSession = PromptSession(
+        history=get_history(),
+        completer=RshxCompleter(),
+        auto_suggest=AutoSuggestFromHistory(),
+        complete_while_typing=False,
+    )
 
     while state.running:
         try:
-            raw_input: str = session.prompt(_build_prompt(state))
+            raw_input: str = session.prompt(build_prompt(state.cwd))
 
         except KeyboardInterrupt:
             print()
