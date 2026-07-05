@@ -2,13 +2,6 @@
 repl.py
 -------
 The Read-Evaluate-Print Loop - the heart of RSHX.
-
-Sprint 1 changes
-----------------
-- PromptSession now receives history and completer.
-- Prompt rendering delegated to core.prompt.
-- History management delegated to core.history.
-- Completion delegated to core.completer.
 """
 
 from dataclasses import dataclass, field
@@ -16,6 +9,7 @@ from pathlib import Path
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.key_binding import KeyBindings
 
 from rshx.core.history import get_history
 from rshx.core.completer import RshxCompleter
@@ -46,6 +40,28 @@ class ShellState:
 
 
 # ---------------------------------------------------------------------------
+# Key bindings
+# ---------------------------------------------------------------------------
+
+def _build_key_bindings() -> KeyBindings:
+    """
+    Tab cycles through completions when menu is open,
+    triggers completion when menu is closed.
+    """
+    bindings = KeyBindings()
+
+    @bindings.add("tab")
+    def handle_tab(event):
+        buffer = event.app.current_buffer
+        if buffer.complete_state:
+            buffer.complete_next()
+        else:
+            buffer.start_completion(select_first=True)
+
+    return bindings
+
+
+# ---------------------------------------------------------------------------
 # REPL
 # ---------------------------------------------------------------------------
 
@@ -55,12 +71,14 @@ def run_shell() -> None:
     print_banner()
 
     state: ShellState = ShellState()
+    completer: RshxCompleter = RshxCompleter(cwd_provider=lambda: state.cwd)
 
     session: PromptSession = PromptSession(
         history=get_history(),
-        completer=RshxCompleter(),
+        completer=completer,
         auto_suggest=AutoSuggestFromHistory(),
         complete_while_typing=False,
+        key_bindings=_build_key_bindings(),
     )
 
     while state.running:
@@ -82,3 +100,6 @@ def run_shell() -> None:
             continue
 
         execute(command, state)
+
+        # Keep completer in sync with current directory
+        completer.update_cwd(state.cwd)
