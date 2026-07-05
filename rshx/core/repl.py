@@ -2,6 +2,12 @@
 repl.py
 -------
 The Read-Evaluate-Print Loop - the heart of RSHX.
+
+Sprint 2 changes
+----------------
+- Parser now returns PipelineNode instead of ParsedCommand.
+- Executor accepts PipelineNode.
+- Everything else unchanged.
 """
 
 from dataclasses import dataclass, field
@@ -14,7 +20,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from rshx.core.history import get_history
 from rshx.core.completer import RshxCompleter
 from rshx.core.prompt import build_prompt
-from rshx.core.parser import parse, ParsedCommand
+from rshx.core.parser import parse
 from rshx.core.executor import execute
 from rshx.utils.display import print_error, print_banner, initialise_display
 
@@ -44,10 +50,7 @@ class ShellState:
 # ---------------------------------------------------------------------------
 
 def _build_key_bindings() -> KeyBindings:
-    """
-    Tab cycles through completions when menu is open,
-    triggers completion when menu is closed.
-    """
+    """Tab cycles through completions or triggers completion."""
     bindings = KeyBindings()
 
     @bindings.add("tab")
@@ -94,12 +97,10 @@ def run_shell() -> None:
             break
 
         try:
-            command: ParsedCommand = parse(raw_input)
+            pipeline = parse(raw_input)
         except ValueError as exc:
             print_error(str(exc))
             continue
 
-        execute(command, state)
-
-        # Keep completer in sync with current directory
+        execute(pipeline, state)
         completer.update_cwd(state.cwd)

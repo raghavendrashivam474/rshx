@@ -1,43 +1,66 @@
 ﻿"""
 parser.py
 ---------
-Transforms raw input strings into structured ParsedCommand objects.
+Transforms raw input strings into structured AST nodes.
+
+Sprint 2 evolution
+------------------
+Sprint 1 parser produced a flat ParsedCommand.
+Sprint 2 parser produces a PipelineNode containing one or more
+RedirectNode stages, each wrapping a CommandNode.
+
+Parsing pipeline
+----------------
+raw string
+    |
+    v
+_tokenize       - split on pipe and redirect operators
+    |
+    v
+_parse_stage    - build CommandNode + RedirectNode per stage
+    |
+    v
+PipelineNode    - collect all stages
+
+Operator tokens
+---------------
+|    pipe
+>    stdout overwrite
+>>   stdout append
+<    stdin redirect
 """
 
-import shlex
+from __future__ import annotations
 import os
-from dataclasses import dataclass, field
+import shlex
+
+from rshx.core.ast import (
+    CommandNode,
+    RedirectNode,
+    PipelineNode,
+    RedirectType,
+)
 
 
-@dataclass
-class ParsedCommand:
+# ---------------------------------------------------------------------------
+# Token types
+# ---------------------------------------------------------------------------
+
+PIPE            = "|"
+REDIRECT_OUT    = ">"
+REDIRECT_APPEND = ">>"
+REDIRECT_IN     = "<"
+
+OPERATORS = {REDIRECT_APPEND, REDIRECT_OUT, REDIRECT_IN, PIPE}
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def parse(raw_input: str) -> PipelineNode:
     """
-    Represents a single parsed command ready for execution.
-
-    Attributes
-    ----------
-    name : str
-        The command name (first token), lowercased.
-    args : list[str]
-        Ordered list of arguments following the command name.
-    raw : str
-        The original unmodified input string.
-    """
-    name: str
-    args: list[str] = field(default_factory=list)
-    raw: str = ""
-
-    def is_empty(self) -> bool:
-        """Return True when the command name is an empty string."""
-        return self.name == ""
-
-
-def parse(raw_input: str) -> ParsedCommand:
-    """
-    Parse a raw input string into a ParsedCommand.
-
-    Uses posix=False on Windows so that backslashes in paths are
-    treated as literal characters rather than escape sequences.
+    Parse a raw input string into a PipelineNode.
 
     Parameters
     ----------
@@ -46,53 +69,208 @@ def parse(raw_input: str) -> ParsedCommand:
 
     Returns
     -------
-    ParsedCommand
-        A structured command object.
+    PipelineNode
+        A structured execution plan. Returns an empty PipelineNode
+        when the input is blank.
 
     Raises
     ------
     ValueError
-        When the input contains tokenisation errors.
+        When the input contains syntax errors such as missing
+        filenames after redirect operators, empty pipe stages,
+        or tokenisation failures.
     """
-    stripped: str = raw_input.strip()
+    stripped = raw_input.strip()
 
     if not stripped:
-        return ParsedCommand(name="", raw=raw_input)
+        return PipelineNode(stages=[])
 
-    # Use posix=False on Windows to preserve backslashes in paths
-    posix_mode: bool = os.name != "nt"
+    tokens = _tokenize(stripped)
+    stages = _build_stages(tokens)
 
-    try:
-        tokens: list[str] = shlex.split(stripped, posix=posix_mode)
-    except ValueError as exc:
-        raise ValueError(f"Parse error - {exc}") from exc
-
-    # shlex with posix=False may keep quotes around tokens - strip them
-    tokens = [_strip_quotes(t) for t in tokens]
-
-    name: str = tokens[0].lower()
-    args: list[str] = tokens[1:]
-
-    return ParsedCommand(name=name, args=args, raw=raw_input)
+    return PipelineNode(stages=stages)
 
 
-def _strip_quotes(token: str) -> str:
+# ---------------------------------------------------------------------------
+# Tokeniser
+# ---------------------------------------------------------------------------
+
+def _tokenize(text: str) -> list[str]:
     """
-    Remove surrounding quotes from a token produced by shlex
-    when running in non-POSIX mode.
+    Split input text into a flat list of word and operator tokens.
+
+    Handles >> before > to avoid >> being split into two > tokens.
+    Uses shlex for word splitting with posix=False on Windows.
 
     Parameters
     ----------
-    token : str
-        A raw token from shlex.split with posix=False.
+    text : str
+        Raw input string.
 
     Returns
     -------
-    str
-        The token with surrounding single or double quotes removed.
+    list[str]
+        Flat list of tokens including operators.
+
+    Raises
+    ------
+    ValueError
+        On shlex tokenisation failure (e.g. unclosed quotes).
     """
+    # Insert spaces around operators so shlex sees them as separate tokens
+    # Handle >> before > to preserve two-character operator
+    text = text.replace(">>", " >> ")
+    text = text.replace(">", " > ").replace(" >  > ", " >> ")
+    text = text.replace("<", " < ")
+    text = text.replace("|", " | ")
+
+    posix_mode = os.name != "nt"
+
+    try:
+        raw_tokens = shlex.split(text, posix=posix_mode)
+    except ValueError as exc:
+        raise ValueError(f"Parse error - {exc}") from exc
+
+    return [_strip_quotes(t) for t in raw_tokens]
+
+
+def _strip_quotes(token: str) -> str:
+    """Remove surrounding quotes left by shlex non-POSIX mode."""
     if len(token) >= 2:
         if (token[0] == '"' and token[-1] == '"') or \
            (token[0] == "'" and token[-1] == "'"):
             return token[1:-1]
     return token
+
+
+# ---------------------------------------------------------------------------
+# Stage builder
+# ---------------------------------------------------------------------------
+
+def _build_stages(tokens: list[str]) -> list[RedirectNode]:
+    """
+    Convert a flat token list into an ordered list of RedirectNodes.
+
+    Splits on PIPE tokens to find stage boundaries, then delegates
+    each segment to _parse_stage.
+
+    Parameters
+    ----------
+    tokens : list[str]
+        Flat token list from _tokenize.
+
+    Returns
+    -------
+    list[RedirectNode]
+        One RedirectNode per pipeline stage.
+
+    Raises
+    ------
+    ValueError
+        On empty pipe segments or leading/trailing pipe operators.
+    """
+    # Split tokens on pipe operator into segments
+    segments: list[list[str]] = []
+    current: list[str] = []
+
+    for token in tokens:
+        if token == PIPE:
+            if not current:
+                raise ValueError(
+                    "Parse error - unexpected pipe operator '|'."
+                )
+            segments.append(current)
+            current = []
+        else:
+            current.append(token)
+
+    if not current:
+        raise ValueError(
+            "Parse error - trailing pipe operator '|' with no command."
+        )
+    segments.append(current)
+
+    return [_parse_stage(segment) for segment in segments]
+
+
+def _parse_stage(tokens: list[str]) -> RedirectNode:
+    """
+    Parse a single pipeline stage token segment into a RedirectNode.
+
+    Scans tokens for redirect operators and extracts:
+    - The command name and arguments (everything before operators)
+    - stdin filename after <
+    - stdout filename after > or >>
+
+    Parameters
+    ----------
+    tokens : list[str]
+        Token segment for a single stage (no pipe operators).
+
+    Returns
+    -------
+    RedirectNode
+        Structured representation of this stage.
+
+    Raises
+    ------
+    ValueError
+        When a redirect operator has no following filename, or
+        when the command name is missing.
+    """
+    cmd_tokens: list[str] = []
+    stdin_file: str | None = None
+    stdout_file: str | None = None
+    stdout_mode: RedirectType | None = None
+
+    i = 0
+    while i < len(tokens):
+        token = tokens[i]
+
+        if token == REDIRECT_APPEND:
+            i += 1
+            if i >= len(tokens):
+                raise ValueError(
+                    "Parse error - '>>' operator requires a filename."
+                )
+            stdout_file = tokens[i]
+            stdout_mode = RedirectType.OUTPUT_APPEND
+
+        elif token == REDIRECT_OUT:
+            i += 1
+            if i >= len(tokens):
+                raise ValueError(
+                    "Parse error - '>' operator requires a filename."
+                )
+            stdout_file = tokens[i]
+            stdout_mode = RedirectType.OUTPUT_OVERWRITE
+
+        elif token == REDIRECT_IN:
+            i += 1
+            if i >= len(tokens):
+                raise ValueError(
+                    "Parse error - '<' operator requires a filename."
+                )
+            stdin_file = tokens[i]
+
+        else:
+            cmd_tokens.append(token)
+
+        i += 1
+
+    if not cmd_tokens:
+        raise ValueError(
+            "Parse error - redirect operator with no command."
+        )
+
+    command = CommandNode(
+        name=cmd_tokens[0].lower(),
+        args=cmd_tokens[1:],
+    )
+
+    return RedirectNode(
+        command=command,
+        stdin_file=stdin_file,
+        stdout_file=stdout_file,
+        stdout_mode=stdout_mode,
+    )

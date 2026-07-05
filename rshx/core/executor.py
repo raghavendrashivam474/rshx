@@ -1,74 +1,116 @@
 ﻿"""
 executor.py
 -----------
-Handles execution of parsed commands.
+Routes parsed pipelines to the correct execution strategy.
 
-Execution flow
---------------
-1. Check whether the command matches a registered built-in.
-2. If yes  - delegate to the built-in handler.
-3. If no   - attempt to run as an external process via subprocess.
-4. On failure - display a suggestion if a close match exists.
+Sprint 2 changes
+----------------
+- Accepts PipelineNode instead of ParsedCommand.
+- Single-command pipelines without redirection execute via the
+  original built-in or subprocess path.
+- Multi-stage pipelines or any pipeline with redirection are
+  delegated to pipeline.execute_pipeline.
+
+The executor remains a thin routing layer. All orchestration
+logic lives in pipeline.py.
 """
 
+from __future__ import annotations
 import subprocess
-import shutil
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rshx.commands.builtins import BUILTIN_REGISTRY
-from rshx.core.parser import ParsedCommand
+from rshx.core.ast import PipelineNode, RedirectNode
+from rshx.core.pipeline import execute_pipeline
 from rshx.utils.display import print_error, print_info, suggest_command
 
 if TYPE_CHECKING:
     from rshx.core.repl import ShellState
 
 
-def execute(command: ParsedCommand, shell_state: "ShellState") -> None:
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def execute(pipeline: PipelineNode, shell_state: "ShellState") -> None:
     """
-    Execute a ParsedCommand against the current shell state.
+    Execute a PipelineNode against the current shell state.
+
+    Routing logic
+    -------------
+    - Empty pipeline  -> do nothing.
+    - Single stage, no redirection, built-in command -> built-in handler.
+    - Single stage, no redirection, external command -> subprocess.run.
+    - Everything else -> pipeline executor.
 
     Parameters
     ----------
-    command : ParsedCommand
-        The structured command produced by the parser.
+    pipeline : PipelineNode
+        The structured execution plan from the parser.
     shell_state : ShellState
         Mutable shell state providing cwd and running flag.
     """
-    if command.is_empty():
+    if not pipeline.stages:
         return
 
+    # Single command with no redirection - use fast path
+    if pipeline.is_single_command():
+        stage = pipeline.stages[0]
+        if not stage.has_stdin_redirect() and not stage.has_stdout_redirect():
+            _execute_single(stage, shell_state)
+            return
+
+    # Multi-stage pipeline or redirection - delegate to pipeline executor
+    execute_pipeline(pipeline, shell_state.cwd)
+
+
+# ---------------------------------------------------------------------------
+# Single command fast path
+# ---------------------------------------------------------------------------
+
+def _execute_single(
+    stage: RedirectNode,
+    shell_state: "ShellState",
+) -> None:
+    """
+    Execute a single command with no redirection.
+
+    Checks built-in registry first, falls back to subprocess.
+    """
+    command = stage.command
+
     if command.name in BUILTIN_REGISTRY:
-        _execute_builtin(command, shell_state)
+        _execute_builtin(stage, shell_state)
     else:
-        _execute_external(command, shell_state)
+        _execute_external(stage, shell_state)
 
 
 def _execute_builtin(
-    command: ParsedCommand,
+    stage: RedirectNode,
     shell_state: "ShellState",
 ) -> None:
     """Dispatch to the appropriate built-in command handler."""
+    command = stage.command
     handler = BUILTIN_REGISTRY[command.name]
     try:
         handler(command.args, shell_state)
     except Exception as exc:
-        print_error(f"Built-in '{command.name}' raised an unexpected error: {exc}")
+        print_error(
+            f"Built-in '{command.name}' raised an unexpected error: {exc}"
+        )
 
 
 def _execute_external(
-    command: ParsedCommand,
+    stage: RedirectNode,
     shell_state: "ShellState",
 ) -> None:
-    """
-    Run an external system command as a child process.
-
-    On FileNotFoundError, builds a candidate list from built-ins
-    and PATH executables and offers a suggestion.
-    """
-    argv: list[str] = [command.name, *command.args]
+    """Run a single external command via subprocess.run."""
+    command = stage.command
+    argv = command.to_argv()
 
     try:
-        result: subprocess.CompletedProcess = subprocess.run(
+        result = subprocess.run(
             argv,
             cwd=shell_state.cwd,
             shell=False,
@@ -85,7 +127,11 @@ def _execute_external(
         suggest_command(command.name, candidates)
 
     except PermissionError:
-        print_error(f"Permission denied: cannot execute '{command.name}'.")
+        print_error(
+            f"Permission denied: cannot execute '{command.name}'."
+        )
 
     except Exception as exc:
-        print_error(f"Unexpected error while running '{command.name}': {exc}")
+        print_error(
+            f"Unexpected error while running '{command.name}': {exc}"
+        )
