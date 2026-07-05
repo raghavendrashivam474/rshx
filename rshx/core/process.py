@@ -2,31 +2,16 @@
 process.py
 ----------
 Manages the lifecycle of individual child processes within a pipeline.
-
-Responsibilities
-----------------
-- Create a subprocess.Popen instance for a single pipeline stage.
-- Connect stdin and stdout streams as directed by the pipeline.
-- Wait for processes to complete.
-- Collect and return exit codes.
-
-Future capabilities such as background jobs, process groups, and
-signal handling should be implemented here without touching
-pipeline.py or executor.py.
 """
 
 from __future__ import annotations
+import os
 import subprocess
 from pathlib import Path
-from typing import IO
 
 from rshx.core.ast import CommandNode
 from rshx.utils.display import print_error, print_info
 
-
-# ---------------------------------------------------------------------------
-# Process creation
-# ---------------------------------------------------------------------------
 
 def start_process(
     command: CommandNode,
@@ -37,31 +22,20 @@ def start_process(
     """
     Start a single child process for a pipeline stage.
 
-    Parameters
-    ----------
-    command : CommandNode
-        The command and arguments to execute.
-    cwd : Path
-        Working directory for the process.
-    stdin : file | int | None
-        stdin stream. subprocess.PIPE, a file handle, or None.
-    stdout : file | int | None
-        stdout stream. subprocess.PIPE, a file handle, or None.
-
-    Returns
-    -------
-    subprocess.Popen | None
-        The started process, or None if the process could not start.
+    On Windows, shell=True is used so that CMD built-ins such as
+    dir, echo, and type are available in pipelines and redirection.
+    On Unix, shell=False is used for safety.
     """
     argv = command.to_argv()
+    use_shell = os.name == "nt"
 
     try:
         return subprocess.Popen(
-            argv,
+            argv if not use_shell else " ".join(argv),
             cwd=cwd,
             stdin=stdin,
             stdout=stdout,
-            shell=False,
+            shell=use_shell,
         )
     except FileNotFoundError:
         print_error(
@@ -77,24 +51,8 @@ def start_process(
         return None
 
 
-# ---------------------------------------------------------------------------
-# Process completion
-# ---------------------------------------------------------------------------
-
 def wait_for_process(proc: subprocess.Popen) -> int:
-    """
-    Wait for a process to finish and return its exit code.
-
-    Parameters
-    ----------
-    proc : subprocess.Popen
-        The process to wait for.
-
-    Returns
-    -------
-    int
-        The process exit code. Returns -1 if waiting fails.
-    """
+    """Wait for a process to finish and return its exit code."""
     try:
         proc.wait()
         return proc.returncode
@@ -105,20 +63,10 @@ def wait_for_process(proc: subprocess.Popen) -> int:
 
 def wait_for_processes(procs: list[subprocess.Popen]) -> list[int]:
     """
-    Wait for a list of processes to finish.
+    Wait for a list of processes in reverse order.
 
-    Waits in reverse order so that upstream processes finish after
-    downstream consumers have read all available output.
-
-    Parameters
-    ----------
-    procs : list[subprocess.Popen]
-        List of running processes in pipeline order.
-
-    Returns
-    -------
-    list[int]
-        Exit codes in pipeline order.
+    Waiting in reverse order prevents upstream producers from
+    blocking when downstream consumers have already finished.
     """
     codes = [0] * len(procs)
     for i in reversed(range(len(procs))):
@@ -128,16 +76,7 @@ def wait_for_processes(procs: list[subprocess.Popen]) -> list[int]:
 
 
 def report_exit_codes(codes: list[int], names: list[str]) -> None:
-    """
-    Print informational messages for any non-zero exit codes.
-
-    Parameters
-    ----------
-    codes : list[int]
-        Exit codes in pipeline order.
-    names : list[str]
-        Command names in pipeline order, for display purposes.
-    """
+    """Print informational messages for any non-zero exit codes."""
     for code, name in zip(codes, names):
         if code != 0:
             print_info(f"Process '{name}' exited with code {code}.")

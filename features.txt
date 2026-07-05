@@ -1,0 +1,3 @@
+55a5c1b feat: Sprint 2 - pipeline execution, redirection, and AST
+2d7df60 feat: Sprint 1 - command history, tab completion, enhanced help, improved errors
+ffb5ede feat: Sprint 0 - project foundation and interactive shell prototype

@@ -3,6 +3,7 @@ test_process.py
 Unit tests for rshx.core.process.
 """
 
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -22,15 +23,9 @@ class TestStartProcess:
     def test_returns_popen_for_valid_command(self, tmp_path: Path):
         cmd = CommandNode(name="whoami")
         proc = start_process(cmd, tmp_path)
-        if proc:
-            proc.wait()
-            assert isinstance(proc, subprocess.Popen)
-
-    def test_returns_none_for_unknown_command(self, tmp_path: Path, capsys):
-        cmd = CommandNode(name="nonexistentcmd999")
-        result = start_process(cmd, tmp_path)
-        assert result is None
-        assert "Error" in capsys.readouterr().out
+        assert proc is not None
+        proc.wait()
+        assert isinstance(proc, subprocess.Popen)
 
     def test_returns_none_on_permission_error(self, tmp_path: Path, capsys):
         cmd = CommandNode(name="whoami")
@@ -45,6 +40,31 @@ class TestStartProcess:
             result = start_process(cmd, tmp_path)
         assert result is None
         assert "Error" in capsys.readouterr().out
+
+    def test_returns_none_on_file_not_found_when_shell_false(self, tmp_path: Path, capsys):
+        """
+        On Unix (shell=False) a missing command raises FileNotFoundError.
+        On Windows (shell=True) CMD handles the error at runtime.
+        This test mocks FileNotFoundError to verify the handler works
+        regardless of platform.
+        """
+        cmd = CommandNode(name="nonexistentcmd999")
+        with patch("subprocess.Popen", side_effect=FileNotFoundError):
+            result = start_process(cmd, tmp_path)
+        assert result is None
+        assert "Error" in capsys.readouterr().out
+
+    def test_uses_shell_true_on_windows(self, tmp_path: Path):
+        """On Windows, shell=True is passed to Popen."""
+        cmd = CommandNode(name="whoami")
+        with patch("subprocess.Popen") as mock_popen:
+            mock_popen.return_value = MagicMock()
+            start_process(cmd, tmp_path)
+        call_kwargs = mock_popen.call_args[1]
+        if os.name == "nt":
+            assert call_kwargs["shell"] is True
+        else:
+            assert call_kwargs["shell"] is False
 
 
 class TestWaitForProcess:

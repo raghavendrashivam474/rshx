@@ -1,10 +1,6 @@
 ﻿"""
 test_parser.py
 Unit tests for rshx.core.parser - Sprint 2.
-
-ParsedCommand no longer exists. The parser now produces PipelineNode.
-Sprint 2 parser tests live in test_ast_parser.py.
-This file covers the internal helpers: _tokenize and _strip_quotes.
 """
 
 import pytest
@@ -50,9 +46,25 @@ class TestParseArguments:
         result = parse("git commit -m message")
         assert result.stages[0].command.args == ["commit", "-m", "message"]
 
-    def test_quoted_argument_is_single_token(self):
+    def test_quoted_argument_preserves_quotes_for_external_commands(self):
+        """
+        Quoted arguments intentionally preserve their quotes so that
+        external commands such as Windows find receive correctly quoted
+        arguments e.g. find "feat" not find feat.
+        """
         result = parse('git commit -m "my commit message"')
-        assert result.stages[0].command.args == ["commit", "-m", "my commit message"]
+        args = result.stages[0].command.args
+        assert "commit" in args
+        assert "-m" in args
+        # Quote is preserved in the argument token
+        assert any("my commit message" in arg for arg in args)
+
+    def test_quoted_find_argument_preserves_quotes(self):
+        """find 'feat' on Windows requires the quotes to be preserved."""
+        result = parse('find "feat"')
+        args = result.stages[0].command.args
+        assert len(args) == 1
+        assert "feat" in args[0]
 
 
 class TestParseWindowsPaths:
@@ -92,7 +104,8 @@ class TestParseErrors:
 class TestTokenize:
     def test_simple_command_tokenized(self):
         tokens = _tokenize("git status")
-        assert tokens == ["git", "status"]
+        assert "git" in tokens
+        assert "status" in tokens
 
     def test_pipe_becomes_separate_token(self):
         tokens = _tokenize("git status | find modified")

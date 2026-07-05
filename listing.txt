@@ -1,0 +1,26 @@
+ Volume in drive C is OS
+ Volume Serial Number is D816-2E6A
+
+ Directory of C:\Users\ragha\Documents\Temp_Workspace\rshx
+
+05-07-2026  19:32    <DIR>          .
+05-07-2026  09:51    <DIR>          ..
+05-07-2026  19:32            53,248 .coverage
+05-07-2026  07:53               206 .gitattributes
+05-07-2026  07:28               298 .gitignore
+05-07-2026  07:33    <DIR>          .pytest_cache
+05-07-2026  07:27    <DIR>          .venv
+05-07-2026  07:26    <DIR>          docs
+05-07-2026  08:17             1,093 LICENSE
+05-07-2026  19:33                 0 listing.txt
+05-07-2026  07:50               403 main.py
+05-07-2026  07:28               489 pyproject.toml
+05-07-2026  08:16             6,380 README.md
+05-07-2026  07:49                56 requirements-dev.txt
+05-07-2026  07:49                43 requirements.txt
+05-07-2026  07:31    <DIR>          rshx
+05-07-2026  19:33               517 status.txt
+05-07-2026  19:18    <DIR>          tests
+05-07-2026  19:33                23 whoami.txt
+              12 File(s)         62,756 bytes
+               7 Dir(s)  332,807,729,152 bytes free

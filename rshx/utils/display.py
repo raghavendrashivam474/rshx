@@ -1,6 +1,5 @@
 ﻿"""
 display.py
-----------
 Centralised output and formatting utilities for RSHX.
 """
 
@@ -22,7 +21,7 @@ BANNER: str = r"""
 ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
 """
 
-VERSION: str = "0.2.0"
+VERSION: str = "0.3.0"
 TAGLINE: str = "Raghav Shell eXtended"
 
 
@@ -35,50 +34,30 @@ def print_banner() -> None:
 
 
 def print_output(message: str) -> None:
-    """Print a standard informational message."""
     print(Fore.WHITE + message)
 
 
 def print_success(message: str) -> None:
-    """Print a success message in green."""
     print(Fore.GREEN + message)
 
 
 def print_warning(message: str) -> None:
-    """Print a warning message in yellow."""
     print(Fore.YELLOW + f"Warning: {message}")
 
 
 def print_error(message: str) -> None:
-    """Print an error message in red."""
     print(Fore.RED + f"Error: {message}")
 
 
 def print_info(message: str) -> None:
-    """Print a subtle informational message."""
     print(Style.DIM + message)
 
 
 def suggest_command(unknown: str, candidates: list[str]) -> None:
     """
-    Print a 'did you mean' suggestion when a command is not found.
-
-    Uses difflib to find close matches from the candidates list.
-    Prints nothing if no close match is found.
-
-    Parameters
-    ----------
-    unknown : str
-        The unrecognised command entered by the user.
-    candidates : list[str]
-        List of valid command names to compare against.
+    Print a did-you-mean suggestion when a command is not found.
     """
-    matches = difflib.get_close_matches(
-        unknown,
-        candidates,
-        n=3,
-        cutoff=0.6,
-    )
+    matches = difflib.get_close_matches(unknown, candidates, n=3, cutoff=0.6)
 
     if matches:
         print_output("")

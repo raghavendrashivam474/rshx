@@ -100,7 +100,14 @@ def _tokenize(text: str) -> list[str]:
     Split input text into a flat list of word and operator tokens.
 
     Handles >> before > to avoid >> being split into two > tokens.
-    Uses shlex for word splitting with posix=False on Windows.
+    Uses shlex for word splitting with posix=False on Windows so
+    that backslashes in paths are preserved literally.
+
+    Quote preservation
+    ------------------
+    Quotes are preserved on argument tokens so that external commands
+    such as Windows find receive correctly quoted arguments.
+    Quotes are only stripped from the command name token itself.
 
     Parameters
     ----------
@@ -131,11 +138,29 @@ def _tokenize(text: str) -> list[str]:
     except ValueError as exc:
         raise ValueError(f"Parse error - {exc}") from exc
 
-    return [_strip_quotes(t) for t in raw_tokens]
+    # Return tokens as-is — quote stripping is applied selectively
+    # in _parse_stage only where needed
+    return raw_tokens
 
 
 def _strip_quotes(token: str) -> str:
-    """Remove surrounding quotes left by shlex non-POSIX mode."""
+    """
+    Remove surrounding quotes from a single token.
+
+    Used only for the command name and filenames — not for
+    arguments passed to external commands which may require
+    their quotes to be preserved.
+
+    Parameters
+    ----------
+    token : str
+        A raw token from shlex.split.
+
+    Returns
+    -------
+    str
+        The token with surrounding single or double quotes removed.
+    """
     if len(token) >= 2:
         if (token[0] == '"' and token[-1] == '"') or \
            (token[0] == "'" and token[-1] == "'"):
@@ -169,7 +194,6 @@ def _build_stages(tokens: list[str]) -> list[RedirectNode]:
     ValueError
         On empty pipe segments or leading/trailing pipe operators.
     """
-    # Split tokens on pipe operator into segments
     segments: list[list[str]] = []
     current: list[str] = []
 
@@ -198,9 +222,15 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
     Parse a single pipeline stage token segment into a RedirectNode.
 
     Scans tokens for redirect operators and extracts:
-    - The command name and arguments (everything before operators)
+    - The command name (quotes stripped) and arguments (quotes preserved)
     - stdin filename after <
     - stdout filename after > or >>
+
+    Quote handling
+    --------------
+    - Command name : quotes stripped so 'git' and git are equivalent
+    - Arguments    : quotes preserved so find "feat" passes "feat" to find
+    - Filenames    : quotes stripped so > "out.txt" works correctly
 
     Parameters
     ----------
@@ -233,7 +263,7 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
                 raise ValueError(
                     "Parse error - '>>' operator requires a filename."
                 )
-            stdout_file = tokens[i]
+            stdout_file = _strip_quotes(tokens[i])
             stdout_mode = RedirectType.OUTPUT_APPEND
 
         elif token == REDIRECT_OUT:
@@ -242,7 +272,7 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
                 raise ValueError(
                     "Parse error - '>' operator requires a filename."
                 )
-            stdout_file = tokens[i]
+            stdout_file = _strip_quotes(tokens[i])
             stdout_mode = RedirectType.OUTPUT_OVERWRITE
 
         elif token == REDIRECT_IN:
@@ -251,7 +281,7 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
                 raise ValueError(
                     "Parse error - '<' operator requires a filename."
                 )
-            stdin_file = tokens[i]
+            stdin_file = _strip_quotes(tokens[i])
 
         else:
             cmd_tokens.append(token)
@@ -263,10 +293,12 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
             "Parse error - redirect operator with no command."
         )
 
-    command = CommandNode(
-        name=cmd_tokens[0].lower(),
-        args=cmd_tokens[1:],
-    )
+    # Strip quotes from command name only
+    # Arguments preserve their quotes for external commands
+    name = _strip_quotes(cmd_tokens[0]).lower()
+    args = cmd_tokens[1:]
+
+    command = CommandNode(name=name, args=args)
 
     return RedirectNode(
         command=command,
