@@ -3,11 +3,11 @@ repl.py
 -------
 The Read-Evaluate-Print Loop - the heart of RSHX.
 
-Sprint 2 changes
+Sprint 3 changes
 ----------------
-- Parser now returns PipelineNode instead of ParsedCommand.
-- Executor accepts PipelineNode.
-- Everything else unchanged.
+- ShellState now holds AliasManager and Environment instances.
+- Preprocessor is instantiated and called before parsing.
+- Warnings from preprocessing are displayed to the user.
 """
 
 from dataclasses import dataclass, field
@@ -17,12 +17,20 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding import KeyBindings
 
+from rshx.core.alias_manager import AliasManager
+from rshx.core.environment import Environment
+from rshx.core.preprocessor import Preprocessor
 from rshx.core.history import get_history
 from rshx.core.completer import RshxCompleter
 from rshx.core.prompt import build_prompt
 from rshx.core.parser import parse
 from rshx.core.executor import execute
-from rshx.utils.display import print_error, print_banner, initialise_display
+from rshx.utils.display import (
+    print_error,
+    print_warning,
+    print_banner,
+    initialise_display,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -40,9 +48,15 @@ class ShellState:
         The shell's current working directory.
     running : bool
         When set to False the REPL loop exits cleanly.
+    alias_manager : AliasManager
+        The session alias registry.
+    environment : Environment
+        The session environment variable registry.
     """
     cwd: Path = field(default_factory=Path.cwd)
     running: bool = True
+    alias_manager: AliasManager = field(default_factory=AliasManager)
+    environment: Environment = field(default_factory=Environment)
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +88,10 @@ def run_shell() -> None:
     print_banner()
 
     state: ShellState = ShellState()
+    preprocessor: Preprocessor = Preprocessor(
+        alias_manager=state.alias_manager,
+        environment=state.environment,
+    )
     completer: RshxCompleter = RshxCompleter(cwd_provider=lambda: state.cwd)
 
     session: PromptSession = PromptSession(
@@ -96,11 +114,23 @@ def run_shell() -> None:
             print()
             break
 
+        # Preprocessing - alias and variable expansion
         try:
-            pipeline = parse(raw_input)
+            expanded, warnings = preprocessor.process(raw_input)
+        except Exception as exc:
+            print_error(f"Preprocessor error: {exc}")
+            continue
+
+        for warning in warnings:
+            print_warning(warning)
+
+        # Parsing
+        try:
+            pipeline = parse(expanded)
         except ValueError as exc:
             print_error(str(exc))
             continue
 
+        # Execution
         execute(pipeline, state)
         completer.update_cwd(state.cwd)
