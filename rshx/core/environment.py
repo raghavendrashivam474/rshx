@@ -167,7 +167,7 @@ class Environment:
 
             if value is None:
                 warnings.append(
-                    f"Warning: variable '%{var_name}%' is not defined."
+                    f"variable '%{var_name}%' is not defined."
                 )
                 return match.group(0)
 
