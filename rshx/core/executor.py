@@ -2,20 +2,10 @@
 executor.py
 -----------
 Routes parsed pipelines to the correct execution strategy.
-
-Sprint 2 changes
-----------------
-- Accepts PipelineNode instead of ParsedCommand.
-- Single-command pipelines without redirection execute via the
-  original built-in or subprocess path.
-- Multi-stage pipelines or any pipeline with redirection are
-  delegated to pipeline.execute_pipeline.
-
-The executor remains a thin routing layer. All orchestration
-logic lives in pipeline.py.
 """
 
 from __future__ import annotations
+import os
 import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -29,55 +19,34 @@ if TYPE_CHECKING:
     from rshx.core.repl import ShellState
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 def execute(pipeline: PipelineNode, shell_state: "ShellState") -> None:
     """
     Execute a PipelineNode against the current shell state.
 
     Routing logic
     -------------
-    - Empty pipeline  -> do nothing.
-    - Single stage, no redirection, built-in command -> built-in handler.
-    - Single stage, no redirection, external command -> subprocess.run.
-    - Everything else -> pipeline executor.
-
-    Parameters
-    ----------
-    pipeline : PipelineNode
-        The structured execution plan from the parser.
-    shell_state : ShellState
-        Mutable shell state providing cwd and running flag.
+    - Empty pipeline                              -> do nothing
+    - Single stage, no redirection, built-in      -> built-in handler
+    - Single stage, no redirection, external      -> subprocess.run
+    - Multi-stage or any redirection              -> pipeline executor
     """
     if not pipeline.stages:
         return
 
-    # Single command with no redirection - use fast path
     if pipeline.is_single_command():
         stage = pipeline.stages[0]
         if not stage.has_stdin_redirect() and not stage.has_stdout_redirect():
             _execute_single(stage, shell_state)
             return
 
-    # Multi-stage pipeline or redirection - delegate to pipeline executor
     execute_pipeline(pipeline, shell_state.cwd)
 
-
-# ---------------------------------------------------------------------------
-# Single command fast path
-# ---------------------------------------------------------------------------
 
 def _execute_single(
     stage: RedirectNode,
     shell_state: "ShellState",
 ) -> None:
-    """
-    Execute a single command with no redirection.
-
-    Checks built-in registry first, falls back to subprocess.
-    """
+    """Execute a single command with no redirection."""
     command = stage.command
 
     if command.name in BUILTIN_REGISTRY:
@@ -105,15 +74,25 @@ def _execute_external(
     stage: RedirectNode,
     shell_state: "ShellState",
 ) -> None:
-    """Run a single external command via subprocess.run."""
+    """
+    Run a single external command via subprocess.run.
+
+    Uses shell=True on Windows so that CMD built-ins such as
+    dir, echo, and type are available alongside PATH executables.
+    """
     command = stage.command
-    argv = command.to_argv()
+    use_shell = os.name == "nt"
+
+    if use_shell:
+        argv = " ".join(command.to_argv())
+    else:
+        argv = command.to_argv()
 
     try:
         result = subprocess.run(
             argv,
             cwd=shell_state.cwd,
-            shell=False,
+            shell=use_shell,
             check=False,
         )
 

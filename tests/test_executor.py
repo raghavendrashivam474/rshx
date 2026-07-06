@@ -1,6 +1,6 @@
 ﻿"""
 test_executor.py
-Unit tests for rshx.core.executor - Sprint 2.
+Unit tests for rshx.core.executor - Sprint 3.
 """
 
 import os
@@ -42,23 +42,70 @@ class TestExecuteBuiltin:
 
 class TestExecuteExternal:
     def test_external_command_calls_subprocess_run(self, state: ShellState):
+        """
+        On Windows shell=True is used so argv is joined to a string.
+        On Unix shell=False is used so argv is a list.
+        """
         pipeline = single_pipeline("whoami")
         mock_result = MagicMock()
         mock_result.returncode = 0
+
+        use_shell = os.name == "nt"
+        expected_argv = "whoami" if use_shell else ["whoami"]
+
         with patch("rshx.core.executor.subprocess.run", return_value=mock_result) as mock_run:
             execute(pipeline, state)
+
         mock_run.assert_called_once_with(
-            ["whoami"],
+            expected_argv,
             cwd=state.cwd,
-            shell=False,
+            shell=use_shell,
             check=False,
         )
 
-    def test_unknown_command_prints_suggestion(self, state: ShellState, capsys):
+    def test_shell_false_uses_list_argv(self, state: ShellState):
+        """
+        Covers executor.py line 89 - the Unix branch where shell=False
+        and argv remains a list. Mocked to run regardless of platform.
+        """
+        pipeline = single_pipeline("whoami")
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+
+        with patch("rshx.core.executor.os.name", "posix"), \
+             patch("rshx.core.executor.subprocess.run", return_value=mock_result) as mock_run:
+            execute(pipeline, state)
+
+        call_args = mock_run.call_args
+        argv_arg = call_args[0][0]
+        assert isinstance(argv_arg, list)
+        assert call_args[1]["shell"] is False
+
+    def test_file_not_found_prints_suggestion(self, state: ShellState, capsys):
+        """
+        Covers executor.py lines 105-106 - FileNotFoundError handler.
+        Mocked to run regardless of platform.
+        """
+        pipeline = single_pipeline("nonexistentcmd")
+
+        with patch(
+            "rshx.core.executor.subprocess.run",
+            side_effect=FileNotFoundError,
+        ):
+            execute(pipeline, state)
+
+        captured = capsys.readouterr()
+        assert "Error" in captured.out or "Warning" in captured.out
+
+    def test_unknown_command_prints_error_or_exit_code(self, state: ShellState, capsys):
         pipeline = single_pipeline("nonexistentcmd123")
         execute(pipeline, state)
         captured = capsys.readouterr()
-        assert "Error" in captured.out or "Warning" in captured.out
+        assert (
+            "Error" in captured.out
+            or "Warning" in captured.out
+            or "exited with code" in captured.out
+        )
 
     def test_nonzero_exit_code_prints_info(self, state: ShellState, capsys):
         pipeline = single_pipeline("somecommand")
