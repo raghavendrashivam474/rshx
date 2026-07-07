@@ -1,2 +1,3 @@
 ﻿prompt_toolkit>=3.0.47
 colorama>=0.4.6
+tomli-w>=1.0.0

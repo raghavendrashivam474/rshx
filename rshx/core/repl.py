@@ -3,11 +3,14 @@ repl.py
 -------
 The Read-Evaluate-Print Loop - the heart of RSHX.
 
-Sprint 3 changes
+Sprint 4 changes
 ----------------
-- ShellState now holds AliasManager and Environment instances.
-- Preprocessor is instantiated and called before parsing.
-- Warnings from preprocessing are displayed to the user.
+- ConfigManager loaded at startup.
+- Aliases and variables restored from configuration.
+- Startup commands executed before the prompt appears.
+- Theme loaded from configuration.
+- Prompt built using prompt_config with theme and config options.
+- Alias and variable changes persisted via ConfigManager.
 """
 
 from dataclasses import dataclass, field
@@ -17,17 +20,20 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding import KeyBindings
 
+from rshx.core.config import ConfigManager
+from rshx.core.theme import get_theme, Theme
 from rshx.core.alias_manager import AliasManager
 from rshx.core.environment import Environment
 from rshx.core.preprocessor import Preprocessor
 from rshx.core.history import get_history
 from rshx.core.completer import RshxCompleter
-from rshx.core.prompt import build_prompt
+from rshx.core.prompt_config import build_prompt
 from rshx.core.parser import parse
 from rshx.core.executor import execute
 from rshx.utils.display import (
     print_error,
     print_warning,
+    print_info,
     print_banner,
     initialise_display,
 )
@@ -40,23 +46,29 @@ from rshx.utils.display import (
 @dataclass
 class ShellState:
     """
-    Mutable state that persists for the lifetime of the shell session.
+    Mutable state for the lifetime of the shell session.
 
     Attributes
     ----------
     cwd : Path
-        The shell's current working directory.
+        Current working directory.
     running : bool
-        When set to False the REPL loop exits cleanly.
+        When False the REPL exits.
     alias_manager : AliasManager
-        The session alias registry.
+        Session alias registry.
     environment : Environment
-        The session environment variable registry.
+        Session environment variable registry.
+    config_manager : ConfigManager
+        Persistent configuration manager.
+    theme : Theme
+        Active display theme.
     """
     cwd: Path = field(default_factory=Path.cwd)
     running: bool = True
     alias_manager: AliasManager = field(default_factory=AliasManager)
     environment: Environment = field(default_factory=Environment)
+    config_manager: ConfigManager = field(default_factory=ConfigManager)
+    theme: Theme = field(default_factory=lambda: get_theme("default"))
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +91,57 @@ def _build_key_bindings() -> KeyBindings:
 
 
 # ---------------------------------------------------------------------------
+# Startup initialisation
+# ---------------------------------------------------------------------------
+
+def _initialise_from_config(state: ShellState) -> None:
+    """
+    Restore aliases, variables, and theme from configuration.
+
+    Called once at startup before the prompt appears.
+    """
+    cfg = state.config_manager.config
+
+    # Restore theme
+    state.theme = get_theme(cfg.theme)
+
+    # Restore aliases
+    for name, value in cfg.aliases.items():
+        try:
+            state.alias_manager.set(name, value)
+        except ValueError:
+            print_warning(f"Skipping invalid alias from config: {name}")
+
+    # Restore environment variables
+    for name, value in cfg.environment.items():
+        try:
+            state.environment.set(name, value)
+        except ValueError:
+            print_warning(f"Skipping invalid variable from config: {name}")
+
+
+def _run_startup_commands(
+    state: ShellState,
+    preprocessor: Preprocessor,
+) -> None:
+    """
+    Execute startup commands defined in configuration.
+
+    Each command is preprocessed and parsed exactly as if the user
+    had typed it at the prompt.
+    """
+    for raw in state.config_manager.config.startup_commands:
+        try:
+            expanded, warnings = preprocessor.process(raw)
+            for warning in warnings:
+                print_warning(warning)
+            pipeline = parse(expanded)
+            execute(pipeline, state)
+        except Exception as exc:
+            print_error(f"Startup command failed: '{raw}' - {exc}")
+
+
+# ---------------------------------------------------------------------------
 # REPL
 # ---------------------------------------------------------------------------
 
@@ -87,11 +150,26 @@ def run_shell() -> None:
     initialise_display()
     print_banner()
 
+    # Load configuration
     state: ShellState = ShellState()
+    state.config_manager.load()
+
+    # Validate configuration
+    errors = state.config_manager.validate()
+    for error in errors:
+        print_warning(error)
+
+    # Restore persistent state
+    _initialise_from_config(state)
+
     preprocessor: Preprocessor = Preprocessor(
         alias_manager=state.alias_manager,
         environment=state.environment,
     )
+
+    # Execute startup commands
+    _run_startup_commands(state, preprocessor)
+
     completer: RshxCompleter = RshxCompleter(cwd_provider=lambda: state.cwd)
 
     session: PromptSession = PromptSession(
@@ -104,7 +182,14 @@ def run_shell() -> None:
 
     while state.running:
         try:
-            raw_input: str = session.prompt(build_prompt(state.cwd))
+            raw_input: str = session.prompt(
+                build_prompt(
+                    cwd=state.cwd,
+                    theme=state.theme,
+                    show_cwd=state.config_manager.config.show_cwd,
+                    show_git_branch=state.config_manager.config.show_git_branch,
+                )
+            )
 
         except KeyboardInterrupt:
             print()
@@ -114,7 +199,6 @@ def run_shell() -> None:
             print()
             break
 
-        # Preprocessing - alias and variable expansion
         try:
             expanded, warnings = preprocessor.process(raw_input)
         except Exception as exc:
@@ -124,13 +208,11 @@ def run_shell() -> None:
         for warning in warnings:
             print_warning(warning)
 
-        # Parsing
         try:
             pipeline = parse(expanded)
         except ValueError as exc:
             print_error(str(exc))
             continue
 
-        # Execution
         execute(pipeline, state)
         completer.update_cwd(state.cwd)
