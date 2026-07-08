@@ -1,0 +1,6 @@
+﻿name = "hello"
+version = "1.0.0"
+description = "A simple greeting plugin demonstrating the RSHX Plugin Framework."
+author = "Raghavendra Singh"
+commands = ["hello", "greet"]
+min_rshx_version = "0.5.0"

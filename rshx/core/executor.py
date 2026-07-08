@@ -2,12 +2,24 @@
 executor.py
 -----------
 Routes parsed pipelines to the correct execution strategy.
+
+Sprint 5 change
+---------------
+After checking built-ins, the executor now checks the plugin
+registry before falling back to external system commands.
+
+Routing order
+-------------
+1. Empty pipeline   -> do nothing
+2. Single stage, no redirection, built-in -> built-in handler
+3. Single stage, no redirection, plugin   -> plugin registry
+4. Single stage, no redirection, external -> subprocess.run
+5. Multi-stage or redirection             -> pipeline executor
 """
 
 from __future__ import annotations
 import os
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rshx.commands.builtins import BUILTIN_REGISTRY
@@ -22,13 +34,6 @@ if TYPE_CHECKING:
 def execute(pipeline: PipelineNode, shell_state: "ShellState") -> None:
     """
     Execute a PipelineNode against the current shell state.
-
-    Routing logic
-    -------------
-    - Empty pipeline                              -> do nothing
-    - Single stage, no redirection, built-in      -> built-in handler
-    - Single stage, no redirection, external      -> subprocess.run
-    - Multi-stage or any redirection              -> pipeline executor
     """
     if not pipeline.stages:
         return
@@ -49,17 +54,27 @@ def _execute_single(
     """Execute a single command with no redirection."""
     command = stage.command
 
+    # 1. Built-in commands
     if command.name in BUILTIN_REGISTRY:
         _execute_builtin(stage, shell_state)
-    else:
-        _execute_external(stage, shell_state)
+        return
+
+    # 2. Plugin commands
+    plugin_manager = getattr(shell_state, "plugin_manager", None)
+    if plugin_manager is not None:
+        registry = plugin_manager._registry
+        if registry.has(command.name):
+            registry.dispatch(command.name, command.args, shell_state)
+            return
+
+    # 3. External commands
+    _execute_external(stage, shell_state)
 
 
 def _execute_builtin(
     stage: RedirectNode,
     shell_state: "ShellState",
 ) -> None:
-    """Dispatch to the appropriate built-in command handler."""
     command = stage.command
     handler = BUILTIN_REGISTRY[command.name]
     try:
@@ -74,12 +89,6 @@ def _execute_external(
     stage: RedirectNode,
     shell_state: "ShellState",
 ) -> None:
-    """
-    Run a single external command via subprocess.run.
-
-    Uses shell=True on Windows so that CMD built-ins such as
-    dir, echo, and type are available alongside PATH executables.
-    """
     command = stage.command
     use_shell = os.name == "nt"
 
@@ -106,11 +115,7 @@ def _execute_external(
         suggest_command(command.name, candidates)
 
     except PermissionError:
-        print_error(
-            f"Permission denied: cannot execute '{command.name}'."
-        )
+        print_error(f"Permission denied: cannot execute '{command.name}'.")
 
     except Exception as exc:
-        print_error(
-            f"Unexpected error while running '{command.name}': {exc}"
-        )
+        print_error(f"Unexpected error while running '{command.name}': {exc}")

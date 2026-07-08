@@ -3,13 +3,9 @@ builtins.py
 -----------
 Implements all built-in shell commands.
 
-Sprint 4 additions
+Sprint 5 additions
 ------------------
-- alias / unalias now persist via ConfigManager
-- set / unset now persist via ConfigManager
-- theme command to switch themes
-- startup command to manage startup commands
-- config command to show configuration file path
+- plugin command to manage the plugin framework
 """
 
 import os
@@ -117,6 +113,12 @@ HELP_DATA: dict[str, dict[str, str]] = {
         "usage":       "config",
         "examples":    "config",
         "notes":       "The configuration file is in TOML format.",
+    },
+    "plugin": {
+        "description": "Manage RSHX plugins.",
+        "usage":       "plugin [list|info|enable|disable|reload] [name]",
+        "examples":    "plugin list\n  plugin info hello\n  plugin enable hello\n  plugin disable hello",
+        "notes":       "Use 'plugin list' to see all loaded plugins.",
     },
 }
 
@@ -339,7 +341,6 @@ def _list_variables(variables: dict[str, str]) -> None:
 
 
 def cmd_theme(args: list[str], shell_state: "ShellState") -> None:
-    """Set or display the active theme."""
     if not args:
         current = shell_state.config_manager.config.theme
         print_output(f"\n  Active theme : {current}")
@@ -361,7 +362,6 @@ def cmd_theme(args: list[str], shell_state: "ShellState") -> None:
 
 
 def cmd_startup(args: list[str], shell_state: "ShellState") -> None:
-    """Manage startup commands."""
     cfg = shell_state.config_manager
 
     if not args or args[0] == "list":
@@ -402,9 +402,86 @@ def cmd_startup(args: list[str], shell_state: "ShellState") -> None:
 
 
 def cmd_config(args: list[str], shell_state: "ShellState") -> None:
-    """Show configuration file path."""
     from rshx.core.config import CONFIG_FILE
     print_output(f"\n  Configuration file: {CONFIG_FILE}\n")
+
+
+def cmd_plugin(args: list[str], shell_state: "ShellState") -> None:
+    """Manage plugins."""
+    pm = getattr(shell_state, "plugin_manager", None)
+
+    if pm is None:
+        print_error("Plugin manager not available.")
+        return
+
+    if not args or args[0] == "list":
+        plugins = pm.list_plugins()
+        if not plugins:
+            print_info("  No plugins loaded.")
+            return
+        print_output("")
+        print_output("  Plugins:")
+        print_output("  " + "-" * 50)
+        for p in plugins:
+            status = "enabled" if p["enabled"] else "disabled"
+            print_output(f"  {p['name']:<15} v{p['version']:<10} [{status}]")
+            print_output(f"  {'':15} {p['description']}")
+        print_output("")
+        return
+
+    if args[0] == "info":
+        if len(args) < 2:
+            print_error("plugin info: requires a plugin name.")
+            return
+        info = pm.get_plugin_info(args[1])
+        if info is None:
+            print_error(f"plugin info: plugin '{args[1]}' not found.")
+            return
+        print_output("")
+        print_output(f"  Name        : {info['name']}")
+        print_output(f"  Version     : {info['version']}")
+        print_output(f"  Description : {info['description']}")
+        print_output(f"  Author      : {info['author']}")
+        print_output(f"  Commands    : {', '.join(info['commands'])}")
+        print_output(f"  Status      : {'enabled' if info['enabled'] else 'disabled'}")
+        print_output(f"  Min RSHX    : {info['min_rshx_version']}")
+        print_output("")
+        return
+
+    if args[0] == "enable":
+        if len(args) < 2:
+            print_error("plugin enable: requires a plugin name.")
+            return
+        if pm.enable(args[1]):
+            print_success(f"Plugin '{args[1]}' enabled.")
+        else:
+            print_error(f"plugin enable: plugin '{args[1]}' not found or failed.")
+        return
+
+    if args[0] == "disable":
+        if len(args) < 2:
+            print_error("plugin disable: requires a plugin name.")
+            return
+        if pm.disable(args[1]):
+            print_success(f"Plugin '{args[1]}' disabled.")
+        else:
+            print_error(f"plugin disable: plugin '{args[1]}' not found.")
+        return
+
+    if args[0] == "reload":
+        if len(args) < 2:
+            print_error("plugin reload: requires a plugin name.")
+            return
+        if pm.reload(args[1]):
+            print_success(f"Plugin '{args[1]}' reloaded.")
+        else:
+            print_error(f"plugin reload: plugin '{args[1]}' failed to reload.")
+        return
+
+    print_error(
+        f"plugin: unknown subcommand '{args[0]}'. "
+        "Use: list | info | enable | disable | reload"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -425,4 +502,5 @@ BUILTIN_REGISTRY: dict[str, callable] = {
     "theme":   cmd_theme,
     "startup": cmd_startup,
     "config":  cmd_config,
+    "plugin":  cmd_plugin,
 }

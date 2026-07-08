@@ -1,22 +1,24 @@
 ﻿"""
 test_builtins.py
-Unit tests for rshx.commands.builtins - Sprint 4.
+Unit tests for rshx.commands.builtins - Sprint 5.
 """
 
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
 from rshx.commands.builtins import (
     cmd_cd, cmd_clear, cmd_pwd, cmd_exit, cmd_help,
     cmd_alias, cmd_unalias, cmd_set, cmd_unset, cmd_env,
-    cmd_theme, cmd_startup, cmd_config,
+    cmd_theme, cmd_startup, cmd_config, cmd_plugin,
     BUILTIN_REGISTRY, HELP_DATA,
 )
 from rshx.core.repl import ShellState
 from rshx.core.config import ConfigManager
+from rshx.core.plugin_registry import PluginRegistry
+from rshx.core.plugin_manager import PluginManager
 
 
 @pytest.fixture()
@@ -24,8 +26,15 @@ def state(tmp_path: Path) -> ShellState:
     os.chdir(tmp_path)
     cfg = ConfigManager(config_file=tmp_path / "config.toml")
     cfg.load()
+    registry = PluginRegistry()
+    pm = PluginManager(
+        registry=registry,
+        config_manager=cfg,
+        plugins_dir=tmp_path / "plugins",
+    )
     s = ShellState(cwd=tmp_path)
     s.config_manager = cfg
+    s.plugin_manager = pm
     return s
 
 
@@ -34,7 +43,7 @@ class TestBuiltinRegistry:
         expected = {
             "help", "clear", "pwd", "cd", "exit",
             "alias", "unalias", "set", "unset", "env",
-            "theme", "startup", "config",
+            "theme", "startup", "config", "plugin",
         }
         assert expected == set(BUILTIN_REGISTRY.keys())
 
@@ -196,7 +205,6 @@ class TestCmdSet:
         assert "No variables" in capsys.readouterr().out
 
     def test_set_no_args_lists_variables(self, state, capsys):
-        """Covers builtins.py lines 331-332 - _list_variables via cmd_set."""
         state.environment.set("EDITOR", "code")
         cmd_set([], state)
         assert "EDITOR" in capsys.readouterr().out
@@ -307,3 +315,54 @@ class TestCmdConfig:
     def test_config_shows_path(self, state, capsys):
         cmd_config([], state)
         assert "config.toml" in capsys.readouterr().out
+
+
+class TestCmdPlugin:
+    def test_plugin_list_empty(self, state, capsys):
+        cmd_plugin([], state)
+        assert "No plugins" in capsys.readouterr().out
+
+    def test_plugin_list_explicit(self, state, capsys):
+        cmd_plugin(["list"], state)
+        assert "No plugins" in capsys.readouterr().out
+
+    def test_plugin_info_missing_name_error(self, state, capsys):
+        cmd_plugin(["info"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_info_nonexistent_error(self, state, capsys):
+        cmd_plugin(["info", "nonexistent"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_enable_missing_name_error(self, state, capsys):
+        cmd_plugin(["enable"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_enable_nonexistent_error(self, state, capsys):
+        cmd_plugin(["enable", "nonexistent"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_disable_missing_name_error(self, state, capsys):
+        cmd_plugin(["disable"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_disable_nonexistent_error(self, state, capsys):
+        cmd_plugin(["disable", "nonexistent"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_reload_missing_name_error(self, state, capsys):
+        cmd_plugin(["reload"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_reload_nonexistent_error(self, state, capsys):
+        cmd_plugin(["reload", "nonexistent"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_unknown_subcommand_error(self, state, capsys):
+        cmd_plugin(["unknown"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_plugin_no_manager_prints_error(self, state, capsys):
+        state.plugin_manager = None
+        cmd_plugin([], state)
+        assert "Error" in capsys.readouterr().out

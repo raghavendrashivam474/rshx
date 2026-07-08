@@ -1,0 +1,6 @@
+﻿name = "sysinfo"
+version = "1.0.0"
+description = "Provides system information commands for RSHX."
+author = "Raghavendra Singh"
+commands = ["sysinfo", "uptime"]
+min_rshx_version = "0.5.0"

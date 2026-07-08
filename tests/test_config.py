@@ -210,3 +210,30 @@ class TestConfigManagerValidate:
         errors = cfg.validate()
         assert len(errors) > 0
         assert cfg.config.theme == "default"
+
+
+class TestConfigManagerPlugins:
+    def test_get_plugin_config_returns_empty_when_not_set(self, cfg):
+        """Covers config.py line 138."""
+        cfg.load()
+        result = cfg.get_plugin_config("myplugin")
+        assert result == {}
+
+    def test_get_plugin_config_returns_values_when_set(self, cfg):
+        cfg.load()
+        cfg.set_plugin_config("myplugin", "enabled", True)
+        result = cfg.get_plugin_config("myplugin")
+        assert result.get("enabled") is True
+
+    def test_load_ignores_non_dict_plugin_config(self, cfg, tmp_path):
+        """Covers config.py lines 156-157 - isinstance check in _parse."""
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(
+            '[general]\nversion = "0.5.0"\ntheme = "default"\n'
+            '[prompt]\nshow_cwd = true\nshow_git_branch = false\n'
+            '[aliases]\n[environment]\n[startup]\ncommands = []\n'
+            '[plugins]\nhello = "not_a_dict"\n',
+            encoding="utf-8",
+        )
+        cfg.load()
+        assert "hello" not in cfg.config.plugins
