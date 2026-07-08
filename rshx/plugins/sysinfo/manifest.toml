@@ -1,4 +1,4 @@
-﻿name = "sysinfo"
+name = "sysinfo"
 version = "1.0.0"
 description = "Provides system information commands for RSHX."
 author = "Raghavendra Singh"
