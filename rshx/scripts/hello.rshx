@@ -1,0 +1,12 @@
+@name Hello Script
+@description A simple demonstration of RSHX scripting.
+@continue_on_error false
+
+# Print working directory
+pwd
+
+# Show who is running the script
+whoami
+
+# Show system info via plugin
+sysinfo

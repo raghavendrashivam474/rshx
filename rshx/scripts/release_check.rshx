@@ -1,0 +1,15 @@
+@name Release Check
+@description Verify project before tagging a release.
+@continue_on_error false
+
+# Confirm clean working tree
+git status
+
+# Run full test suite
+pytest --tb=short -q
+
+# Show last 10 commits
+git log --oneline -10
+
+# Display system information
+sysinfo

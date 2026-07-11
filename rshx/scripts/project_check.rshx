@@ -1,0 +1,15 @@
+@name Project Check
+@description Verify the RSHX project state.
+@continue_on_error false
+
+# Show current directory
+pwd
+
+# Run the test suite
+pytest --tb=short -q
+
+# Check git status
+git status
+
+# Show recent commits
+git log --oneline -5

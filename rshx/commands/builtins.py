@@ -3,9 +3,9 @@ builtins.py
 -----------
 Implements all built-in shell commands.
 
-Sprint 5 additions
+Sprint 6 additions
 ------------------
-- plugin command to manage the plugin framework
+- run command to execute .rshx script files
 """
 
 import os
@@ -33,7 +33,7 @@ HELP_DATA: dict[str, dict[str, str]] = {
     "help": {
         "description": "Display help information for available commands.",
         "usage":       "help [command]",
-        "examples":    "help\n  help cd\n  help alias",
+        "examples":    "help\n  help cd\n  help run",
         "notes":       "Run 'help' with no arguments to list all commands.",
     },
     "clear": {
@@ -105,7 +105,7 @@ HELP_DATA: dict[str, dict[str, str]] = {
     "startup": {
         "description": "Manage startup commands.",
         "usage":       "startup [add|remove|list] [command]",
-        "examples":    "startup list\n  startup add alias gs=git status\n  startup remove alias gs=git status",
+        "examples":    "startup list\n  startup add alias gs=git status",
         "notes":       "Startup commands run automatically when RSHX launches.",
     },
     "config": {
@@ -117,8 +117,17 @@ HELP_DATA: dict[str, dict[str, str]] = {
     "plugin": {
         "description": "Manage RSHX plugins.",
         "usage":       "plugin [list|info|enable|disable|reload] [name]",
-        "examples":    "plugin list\n  plugin info hello\n  plugin enable hello\n  plugin disable hello",
+        "examples":    "plugin list\n  plugin info hello\n  plugin enable hello",
         "notes":       "Use 'plugin list' to see all loaded plugins.",
+    },
+    "run": {
+        "description": "Execute a .rshx script file.",
+        "usage":       "run <script.rshx> [arg1 arg2 ...]",
+        "examples":    "run hello.rshx\n  run greet.rshx Raghav\n  run deploy.rshx production",
+        "notes":       "Scripts share the active shell state.\n"
+                       "  Arguments are available as %1 %2 etc.\n"
+                       "  Scripts stop on failure by default.\n"
+                       "  Use @continue_on_error true to override.",
     },
 }
 
@@ -407,7 +416,6 @@ def cmd_config(args: list[str], shell_state: "ShellState") -> None:
 
 
 def cmd_plugin(args: list[str], shell_state: "ShellState") -> None:
-    """Manage plugins."""
     pm = getattr(shell_state, "plugin_manager", None)
 
     if pm is None:
@@ -484,6 +492,86 @@ def cmd_plugin(args: list[str], shell_state: "ShellState") -> None:
     )
 
 
+def cmd_run(args: list[str], shell_state: "ShellState") -> None:
+    """
+    Execute a .rshx script file.
+
+    Coordinates the Script Loader, Script Parser, Script Runtime,
+    and result display. Contains no scripting engine logic itself.
+    """
+    if not args:
+        print_error("run: requires a script path.")
+        print_info("  Usage: run <script.rshx> [arg1 arg2 ...]")
+        return
+
+    script_path = args[0]
+    script_args = args[1:]
+
+    from rshx.core.script_loader import load_script
+    from rshx.core.script_parser import parse_script
+    from rshx.core.script_runtime import run_script
+    from rshx.core.preprocessor import Preprocessor
+
+    loaded, error = load_script(script_path, cwd=shell_state.cwd)
+    if loaded is None:
+        print_error(f"run: {error}")
+        return
+
+    node, parse_errors = parse_script(
+        loaded.source,
+        script_path=str(loaded.path),
+    )
+
+    if parse_errors:
+        for pe in parse_errors:
+            if "Unknown directive" in pe.message:
+                print_warning(pe.format())
+            else:
+                print_error(pe.format())
+        critical = [e for e in parse_errors if "Unknown directive" not in e.message]
+        if critical:
+            return
+
+    if node.is_empty():
+        print_info(f"  Script '{script_path}' contains no commands.")
+        return
+
+    preprocessor = Preprocessor(
+        alias_manager=shell_state.alias_manager,
+        environment=shell_state.environment,
+    )
+
+    result = run_script(
+        node=node,
+        shell_state=shell_state,
+        preprocessor=preprocessor,
+        script_args=script_args,
+    )
+
+    _display_script_result(result)
+
+
+def _display_script_result(result) -> None:
+    """Format and display a ScriptResult."""
+    print_output("")
+    print_output(f"  Script: {result.script_name}")
+    print_output("  " + "-" * 40)
+    print_output(f"  Commands executed : {result.commands_executed}")
+    print_output(f"  Succeeded         : {result.commands_succeeded}")
+    print_output(f"  Failed            : {result.commands_failed}")
+    print_output(f"  Duration          : {result.duration:.2f}s")
+
+    if result.success:
+        print_success("  Result: SUCCESS")
+    else:
+        print_error("  Result: FAILED")
+        for error in result.errors:
+            print_output("")
+            print_error(error.format())
+
+    print_output("")
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -503,4 +591,5 @@ BUILTIN_REGISTRY: dict[str, callable] = {
     "startup": cmd_startup,
     "config":  cmd_config,
     "plugin":  cmd_plugin,
+    "run":     cmd_run,
 }
