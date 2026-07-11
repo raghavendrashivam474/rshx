@@ -1,0 +1,6 @@
+@name Continue Test
+@continue_on_error true
+
+pwd
+invalidcommand999
+whoami

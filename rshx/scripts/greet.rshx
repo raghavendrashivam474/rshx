@@ -1,0 +1,7 @@
+@name Greet Script
+@description Greets a named person using positional argument.
+@continue_on_error false
+
+# Print greeting using argument
+echo Hello %1
+pwd

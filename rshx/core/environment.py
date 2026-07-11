@@ -3,46 +3,26 @@ environment.py
 --------------
 Manages user-defined environment variables for the shell session.
 
-Variables are referenced using %VARNAME% syntax, consistent with
-Windows CMD convention. The variable resolver replaces all
-occurrences of %VARNAME% in the input string with the stored value
-before the command is passed to the parser.
-
-Variables are session-scoped. Persistence is out of scope for
-Sprint 3 and will be introduced in Sprint 4.
-
-Responsibilities
-----------------
-- Store variables in an internal dictionary.
-- Create, overwrite, delete, and look up variables.
-- Expand %VARNAME% references in command strings.
-- Handle undefined variable references gracefully.
+Variables are referenced using %VARNAME% syntax.
+Positional script arguments are available as %1 %2 %3 etc.
 """
 
 from __future__ import annotations
 import re
 
 
-# Pattern matches %VARNAME% references in command strings
-_VAR_PATTERN = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*)%")
+# Pattern matches %VARNAME% - allows letters, digits, underscores
+# Also allows pure digit names for positional args %1 %2 %3
+_VAR_PATTERN = re.compile(r"%([A-Za-z_][A-Za-z0-9_]*|[0-9]+)%")
 
 
 class Environment:
     """
     Manages the environment variable registry for an RSHX session.
-
-    Attributes
-    ----------
-    _variables : dict[str, str]
-        Maps variable name to its string value.
     """
 
     def __init__(self) -> None:
         self._variables: dict[str, str] = {}
-
-    # ------------------------------------------------------------------
-    # Mutation
-    # ------------------------------------------------------------------
 
     def set(self, name: str, value: str) -> None:
         """
@@ -74,42 +54,13 @@ class Environment:
         self._variables[name] = value
 
     def remove(self, name: str) -> None:
-        """
-        Remove a variable by name.
-
-        Parameters
-        ----------
-        name : str
-            The variable name to remove.
-
-        Raises
-        ------
-        KeyError
-            When the variable does not exist.
-        """
+        """Remove a variable by name."""
         if name not in self._variables:
             raise KeyError(f"Variable '{name}' not found.")
-
         del self._variables[name]
 
-    # ------------------------------------------------------------------
-    # Query
-    # ------------------------------------------------------------------
-
     def get(self, name: str) -> str | None:
-        """
-        Look up a variable by name.
-
-        Parameters
-        ----------
-        name : str
-            The variable name to look up.
-
-        Returns
-        -------
-        str | None
-            The variable value, or None if not defined.
-        """
+        """Look up a variable by name."""
         return self._variables.get(name)
 
     def exists(self, name: str) -> bool:
@@ -117,14 +68,7 @@ class Environment:
         return name in self._variables
 
     def all(self) -> dict[str, str]:
-        """
-        Return a copy of all defined variables.
-
-        Returns
-        -------
-        dict[str, str]
-            Mapping of variable name to value.
-        """
+        """Return a copy of all defined variables."""
         return dict(self._variables)
 
     def count(self) -> int:
@@ -135,15 +79,11 @@ class Environment:
         """Remove all variables."""
         self._variables.clear()
 
-    # ------------------------------------------------------------------
-    # Expansion
-    # ------------------------------------------------------------------
-
     def expand(self, text: str) -> tuple[str, list[str]]:
         """
-        Expand all %VARNAME% references in the given text.
+        Expand all %VARNAME% and %1 %2 %3 references in the given text.
 
-        Replaces each %VARNAME% occurrence with the stored value.
+        Replaces each %VARNAME% or %N% occurrence with the stored value.
         Undefined variable references are left unchanged and
         reported in the warnings list.
 
@@ -156,8 +96,7 @@ class Environment:
         Returns
         -------
         tuple[str, list[str]]
-            A tuple of (expanded_text, warnings) where warnings is
-            a list of messages about undefined variable references.
+            A tuple of (expanded_text, warnings).
         """
         warnings: list[str] = []
 

@@ -9,9 +9,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rshx.core.script_runtime import run_script, _inject_args, _remove_args, _derive_name
+from rshx.core.script_runtime import (
+    run_script, _inject_args, _remove_args, _derive_name,
+    _expand_positional_bare,
+)
 from rshx.core.script_types import ScriptNode, ScriptCommand
-from rshx.core.script_parser import parse_script
 from rshx.core.repl import ShellState
 from rshx.core.config import ConfigManager
 from rshx.core.plugin_registry import PluginRegistry
@@ -50,6 +52,32 @@ def make_node(*commands: str, continue_on_error: bool = False) -> ScriptNode:
     for i, cmd in enumerate(commands, start=1):
         node.commands.append(ScriptCommand(source=cmd, line_number=i))
     return node
+
+
+class TestExpandPositionalBare:
+    def test_expands_bare_percent_1(self):
+        result = _expand_positional_bare("echo Hello %1", ["Raghav"])
+        assert result == "echo Hello Raghav"
+
+    def test_expands_multiple_args(self):
+        result = _expand_positional_bare("echo %1 %2", ["Hello", "World"])
+        assert result == "echo Hello World"
+
+    def test_missing_arg_expands_to_empty(self):
+        result = _expand_positional_bare("echo %1 %2", ["OnlyOne"])
+        assert result == "echo OnlyOne "
+
+    def test_no_positional_refs_unchanged(self):
+        result = _expand_positional_bare("git status", ["Raghav"])
+        assert result == "git status"
+
+    def test_percent_var_percent_not_affected(self):
+        result = _expand_positional_bare("cd %MYDIR%", ["Raghav"])
+        assert result == "cd %MYDIR%"
+
+    def test_empty_args_leaves_refs(self):
+        result = _expand_positional_bare("echo %1", [])
+        assert result == "echo "
 
 
 class TestRunScriptBasic:
@@ -106,10 +134,11 @@ class TestRunScriptSharedState:
 
 
 class TestRunScriptPositionalArgs:
-    def test_positional_arg_injected(self, state, preprocessor):
-        node = make_node("pwd")
-        run_script(node, state, preprocessor, script_args=["hello"])
-        assert state.environment._variables.get("1") is None
+    def test_bare_positional_arg_expands(self, state, preprocessor, tmp_path):
+        """Test that %1 (without closing %) expands correctly."""
+        node = make_node("echo %1")
+        result = run_script(node, state, preprocessor, script_args=["Raghav"])
+        assert result.commands_succeeded == 1
 
     def test_positional_args_removed_after_execution(self, state, preprocessor):
         node = make_node("pwd")
@@ -126,6 +155,11 @@ class TestRunScriptPositionalArgs:
         node = make_node("pwd")
         run_script(node, state, preprocessor, script_args=[])
         assert "1" not in state.environment._variables
+
+    def test_positional_arg_injected(self, state, preprocessor):
+        node = make_node("pwd")
+        run_script(node, state, preprocessor, script_args=["hello"])
+        assert state.environment._variables.get("1") is None
 
 
 class TestRunScriptFailureHandling:

@@ -21,7 +21,7 @@ BANNER: str = r"""
 ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
 """
 
-VERSION: str = "0.5.0"
+VERSION: str = "0.7.0"
 TAGLINE: str = "Raghav Shell eXtended"
 
 

@@ -1,0 +1,5 @@
+@name Variable Test
+@continue_on_error false
+
+cd %MYDIR%
+pwd
