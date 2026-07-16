@@ -7,10 +7,16 @@ Each layer has a single, clearly defined responsibility.
 
 ## Execution Pipeline
 
-    User
+        User
       |
       v
     Prompt Session  (prompt_toolkit - history, completion, key bindings)
+      |
+      v
+    Input Dispatcher  (classifies input: EMPTY, SINGLE, MULTI)
+      |
+      v
+    Command Queue   (sequential execution, stop-on-failure)
       |
       v
     Script Runtime  (.rshx files feed into the same pipeline)
@@ -50,6 +56,8 @@ Each layer has a single, clearly defined responsibility.
     |
     |-- core/
     |   |-- repl.py              REPL loop and ShellState
+    |   |-- input_dispatcher.py  Input classification and normalisation
+    |   |-- command_queue.py     Sequential multi-command execution engine
     |   |-- parser.py            Input tokenisation and AST construction
     |   |-- executor.py          Command routing
     |   |-- ast.py               AST node definitions
@@ -117,6 +125,12 @@ The script runtime does not duplicate any execution logic.
 shell=True used on Windows so CMD built-ins work in pipelines.
 posix=False used in shlex so backslashes are preserved in paths.
 All TOML files written as UTF-8 without BOM.
+
+### Command Queue
+Multi-command input flows through a CommandQueue rather than recursive
+REPL execution. The queue executes commands sequentially, halts on the
+first exception by default, and always halts on KeyboardInterrupt.
+This separates execution sequencing from the REPL prompt loop.
 
 ### Configuration Hierarchy
 Configuration file: ~/.rshx/config.toml

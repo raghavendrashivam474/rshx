@@ -16,6 +16,27 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.9.2] - 2026-07 - Release Sprint 2, Milestone 2
+
+### Added
+- CommandQueue in core/command_queue.py for sequential multi-command execution
+- CommandResult tracking per-command success, failure, and interrupt state
+- QueueResult summarising full queue runs with aggregation methods
+- Stop-on-first-failure behaviour by default (configurable)
+- KeyboardInterrupt always halts queue regardless of stop_on_failure setting
+- Queue halts immediately when shell_state.running is False
+- 29 new unit tests in test_command_queue.py covering all execution paths
+
+### Changed
+- repl._execute_raw now delegates execution to CommandQueue
+- Removed direct parse/execute imports from repl.py
+
+---
+
+## [0.9.1] - 2026-07 - Release Sprint 2, Milestone 1
+
+---
+
 ## [0.8.0] - 2025-07 - Release Sprint 1
 
 ### Added
