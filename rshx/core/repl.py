@@ -3,9 +3,18 @@ repl.py
 -------
 The Read-Evaluate-Print Loop - the heart of RSHX.
 
-Enhancements:
-- Better Ctrl+C handling to reset the prompt buffer.
-- Robust execution loop through the input dispatcher.
+Interrupt handling
+------------------
+Ctrl+C at the prompt clears the current input and prints a short
+message so the user knows the shell is still alive and responsive.
+
+Ctrl+D triggers a clean shutdown equivalent to typing 'exit'.
+Plugins are shut down and a goodbye message is displayed.
+
+Prompt recovery
+---------------
+After any interruption the prompt is always redrawn cleanly.
+The shell never requires restarting after a Ctrl+C or Ctrl+D.
 """
 
 from dataclasses import dataclass, field
@@ -23,8 +32,6 @@ from rshx.core.preprocessor import Preprocessor
 from rshx.core.history import get_history
 from rshx.core.completer import RshxCompleter
 from rshx.core.prompt_config import build_prompt
-# from rshx.core.parser import parse
-# from rshx.core.executor import execute
 from rshx.core.plugin_registry import PluginRegistry
 from rshx.core.plugin_manager import PluginManager
 from rshx.core.input_dispatcher import InputDispatcher
@@ -33,6 +40,7 @@ from rshx.utils.display import (
     print_error,
     print_warning,
     print_banner,
+    print_info,
     initialise_display,
 )
 
@@ -105,6 +113,29 @@ def _execute_raw(
     queue.run(result.commands)
 
 
+def _handle_interrupt() -> None:
+    """
+    Respond to Ctrl+C at the prompt.
+
+    Prints a short message so the user knows the shell received
+    the signal and is ready for new input. The prompt redraws
+    automatically after this function returns.
+    """
+    print("\n  (interrupted — press Ctrl+D to exit)")
+
+
+def _handle_eof(state: ShellState) -> None:
+    """
+    Respond to Ctrl+D at the prompt.
+
+    Sets running to False so the main loop exits cleanly.
+    Plugin shutdown and goodbye message are handled by the
+    caller after the loop terminates.
+    """
+    print("")
+    state.running = False
+
+
 def run_shell() -> None:
     initialise_display()
     print_banner()
@@ -149,10 +180,11 @@ def run_shell() -> None:
             completer.update_cwd(state.cwd)
 
         except KeyboardInterrupt:
-            # Handle Ctrl+C at the prompt level
+            _handle_interrupt()
             continue
-        except EOFError:
-            print("\nGoodbye!")
-            break
 
+        except EOFError:
+            _handle_eof(state)
+
+    print_info("Goodbye!")
     plugin_manager.shutdown_all()

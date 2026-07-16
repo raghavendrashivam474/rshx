@@ -8,6 +8,8 @@ from prompt_toolkit.formatted_text import HTML
 
 from rshx.core.repl import ShellState
 from rshx.core.prompt import build_prompt
+from unittest.mock import patch
+from rshx.core.repl import _handle_interrupt, _handle_eof
 
 
 class TestShellState:
@@ -58,3 +60,41 @@ class TestBuildPrompt:
         assert str(path_a) in result_a.value
         assert str(path_b) in result_b.value
         assert str(path_a) not in result_b.value
+
+
+class TestHandleInterrupt:
+    def test_prints_interrupted_message(self, capsys):
+        _handle_interrupt()
+        captured = capsys.readouterr()
+        assert "interrupted" in captured.out
+
+    def test_prints_ctrl_d_hint(self, capsys):
+        _handle_interrupt()
+        captured = capsys.readouterr()
+        assert "Ctrl+D" in captured.out
+
+    def test_output_starts_with_newline(self, capsys):
+        _handle_interrupt()
+        captured = capsys.readouterr()
+        assert captured.out.startswith("\n")
+
+
+class TestHandleEof:
+    def test_sets_running_false(self):
+        state = ShellState()
+        assert state.running is True
+        _handle_eof(state)
+        assert state.running is False
+
+    def test_does_not_raise(self):
+        state = ShellState()
+        try:
+            _handle_eof(state)
+        except Exception as exc:
+            pytest.fail(f"_handle_eof raised unexpectedly: {exc}")
+
+    def test_running_already_false_stays_false(self):
+        state = ShellState()
+        state.running = False
+        _handle_eof(state)
+        assert state.running is False
