@@ -205,7 +205,6 @@ def cmd_cd(args: list[str], shell_state: "ShellState") -> None:
 
 
 def cmd_exit(args: list[str], shell_state: "ShellState") -> None:
-    print_success("Goodbye!")
     shell_state.running = False
 
 
@@ -395,6 +394,9 @@ def cmd_startup(args: list[str], shell_state: "ShellState") -> None:
             print_error("startup remove: requires a command argument.")
             return
         command = " ".join(args[1:])
+        if not confirm_destructive("remove startup command", command):
+            print_info("  Operation cancelled.")
+            return
         cfg.remove_startup_command(command)
         print_success(f"Startup command removed: '{command}'")
         return

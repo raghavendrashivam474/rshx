@@ -1,4 +1,4 @@
-﻿"""
+"""
 test_builtins.py
 Unit tests for rshx.commands.builtins - Release Sprint 2.
 """
@@ -310,6 +310,26 @@ class TestCmdStartup:
 
     def test_startup_unknown_subcommand_error(self, state, capsys):
         cmd_startup(["unknown"], state)
+        assert "Error" in capsys.readouterr().out
+
+    def test_startup_remove_confirmed_removes_command(self, state, capsys):
+        state.config_manager.config.startup_commands.append("alias gs=git status")
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=True):
+            cmd_startup(["remove", "alias", "gs=git", "status"], state)
+        captured = capsys.readouterr()
+        assert "removed" in captured.out
+        assert "alias gs=git status" not in state.config_manager.config.startup_commands
+
+    def test_startup_remove_cancelled_keeps_command(self, state, capsys):
+        state.config_manager.config.startup_commands.append("alias gs=git status")
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=False):
+            cmd_startup(["remove", "alias", "gs=git", "status"], state)
+        captured = capsys.readouterr()
+        assert "cancelled" in captured.out.lower()
+        assert "alias gs=git status" in state.config_manager.config.startup_commands
+
+    def test_startup_remove_no_command_error(self, state, capsys):
+        cmd_startup(["remove"], state)
         assert "Error" in capsys.readouterr().out
 
 
