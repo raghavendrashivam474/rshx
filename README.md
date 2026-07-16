@@ -4,7 +4,7 @@ A lightweight, extensible, cross-platform command-line shell written in Python.
 
 [![Python](https://img.shields.io/badge/python-3.13+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.8.3-orange.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.9.5-orange.svg)](CHANGELOG.md)
 
 ---
 
@@ -12,9 +12,9 @@ A lightweight, extensible, cross-platform command-line shell written in Python.
 
 RSHX (Raghav Shell eXtended) is a modern command-line shell built from first principles to explore shell architecture through disciplined engineering.
 
-Rather than replicating existing shells feature-for-feature, RSHX evolves through structured development sprints, emphasizing clean architecture, modular design, extensive automated testing, and long-term maintainability.
+Rather than replicating existing shells feature-for-feature, RSHX evolves through structured engineering sprints, emphasizing clean architecture, modularity, automated testing, and long-term maintainability.
 
-Current development has completed the planned feature roadmap through native scripting and entered the product hardening phase in preparation for Version 1.0.
+The planned feature roadmap is now complete. Current development focuses on release quality, usability, and Version 1.0 preparation.
 
 ---
 
@@ -22,74 +22,90 @@ Current development has completed the planned feature roadmap through native scr
 
 ## Interactive Shell
 
-* Interactive REPL powered by `prompt_toolkit`
-* Dynamic working-directory prompt
-* Persistent command history
-* Auto-suggestions
-* Intelligent tab completion
-* Contextual help system
+- Interactive REPL powered by `prompt_toolkit`
+- Dynamic working-directory prompt
+- Persistent command history
+- Auto-suggestions
+- Intelligent tab completion
+- Contextual help system
+- Multi-command paste support
+- Graceful Ctrl+C and Ctrl+D handling
 
 ---
 
 ## Command Execution
 
-* Built-in commands
-* External system commands
-* Multi-stage pipelines
-* Input redirection
-* Output overwrite
-* Output append
-* AST-driven execution planning
+- Built-in commands
+- External system commands
+- Multi-stage pipelines
+- Input redirection
+- Output overwrite
+- Output append
+- AST-driven execution planning
+- Command queue execution
 
 ---
 
 ## Shell Environment
 
-* Persistent aliases
-* Session aliases
-* Persistent environment variables
-* Variable expansion
-* Command preprocessing
-* Startup commands
-* Cross-command shared shell state
+- Persistent aliases
+- Session aliases
+- Persistent environment variables
+- Variable expansion
+- Command preprocessing
+- Startup commands
+- Cross-command shared shell state
 
 ---
 
 ## Configuration & Personalization
 
-* TOML-based configuration
-* Automatic configuration loading
-* Automatic configuration generation
-* Theme management
-* Prompt customization
-* Persistent settings
-* Configuration validation
+- TOML-based configuration
+- Automatic configuration loading
+- Automatic configuration generation
+- Theme management
+- Prompt customization
+- Persistent settings
+- Configuration validation
 
 ---
 
 ## Plugin Framework
 
-* Plugin discovery
-* Plugin manifests
-* Plugin enable / disable
-* Plugin reload
-* Plugin metadata
-* Dynamic command registration
+- Plugin discovery
+- Plugin manifests
+- Plugin enable / disable
+- Plugin reload
+- Plugin metadata
+- Dynamic command registration
 
 ---
 
 ## Native Scripting
 
-* Native `.rshx` scripts
-* Script metadata directives
-* Positional arguments
-* Shared shell environment
-* Alias expansion
-* Variable expansion
-* Plugin command support
-* Pipeline execution
-* Redirection support
-* Execution summaries
+- Native `.rshx` scripts
+- Script metadata directives
+- Positional arguments
+- Shared shell environment
+- Alias expansion
+- Variable expansion
+- Plugin command support
+- Pipeline execution
+- Redirection support
+- Execution summaries
+
+---
+
+## Interactive Experience
+
+- Input Dispatcher architecture
+- Command Queue execution engine
+- Multi-command execution
+- Reusable confirmation framework
+- Friendly error reporting
+- Interactive safety for destructive commands
+- Improved prompt recovery
+- Consistent exit behaviour
 
 ---
 
@@ -143,29 +159,27 @@ rshx
 
 # Built-in Commands
 
-| Command                                    | Description                     |
-| ------------------------------------------ | ------------------------------- |
-| `help [command]`                           | Display help information        |
-| `clear`                                    | Clear terminal                  |
-| `pwd`                                      | Print current working directory |
-| `cd [path]`                                | Change working directory        |
-| `alias [name=value]`                       | Create or list aliases          |
-| `unalias <name>`                           | Remove alias                    |
-| `set NAME=value`                           | Create environment variable     |
-| `unset NAME`                               | Remove environment variable     |
-| `env [NAME]`                               | Display variables               |
-| `theme [name]`                             | View or change active theme     |
-| `startup [add/remove/list]`                | Manage startup commands         |
-| `config`                                   | Show configuration information  |
-| `plugin [list/info/enable/disable/reload]` | Manage plugins                  |
-| `run <script>.rshx [args]`                 | Execute an RSHX script          |
-| `exit`                                     | Exit RSHX                       |
+| Command | Description |
+|----------|-------------|
+| `help [command]` | Display help information |
+| `clear` | Clear terminal |
+| `pwd` | Print current working directory |
+| `cd [path]` | Change working directory |
+| `alias [name=value]` | Create or list aliases |
+| `unalias <name>` | Remove alias |
+| `set NAME=value` | Create environment variable |
+| `unset NAME` | Remove environment variable |
+| `env [NAME]` | Display variables |
+| `theme [name]` | View or change active theme |
+| `startup [add/remove/list]` | Manage startup commands |
+| `config` | Show configuration information |
+| `plugin [list/info/enable/disable/reload]` | Manage plugins |
+| `run <script>.rshx [args]` | Execute an RSHX script |
+| `exit` | Exit RSHX |
 
 ---
 
 # Pipelines & Redirection
-
-RSHX supports Unix-style command composition.
 
 ```text
 git log --oneline | find "feat"
@@ -181,7 +195,7 @@ sort < names.txt
 
 # RSHX Scripting
 
-Example script:
+Example:
 
 ```text
 # release_check.rshx
@@ -222,7 +236,7 @@ Plugins reside inside:
 rshx/plugins/
 ```
 
-Example layout:
+Example:
 
 ```text
 myplugin/
@@ -250,39 +264,39 @@ plugin reload
 
 # Configuration
 
-Configuration is stored in:
+Configuration file:
 
 ```text
 ~/.rshx/config.toml
 ```
 
-Generated automatically on first launch.
+Automatically generated on first launch.
 
 Supports:
 
-* Themes
-* Prompt settings
-* Startup commands
-* Persistent aliases
-* Environment variables
-* Plugin settings
+- Themes
+- Prompt settings
+- Startup commands
+- Persistent aliases
+- Environment variables
+- Plugin settings
 
 ---
 
 # Documentation
 
-| Document                      | Purpose                     |
-| ----------------------------- | --------------------------- |
-| `ARCHITECTURE.md`             | Overall system architecture |
-| `CHANGELOG.md`                | Release history             |
-| `ROADMAP.md`                  | Future roadmap              |
-| `CONTRIBUTING.md`             | Contribution guide          |
-| `SECURITY.md`                 | Security policy             |
-| `CODE_OF_CONDUCT.md`          | Community guidelines        |
-| `docs/plugin_guide.md`        | Plugin development          |
-| `docs/scripting_guide.md`     | RSHX scripting              |
-| `docs/configuration_guide.md` | Configuration reference     |
-| `docs/testing_guide.md`       | Testing guide               |
+| Document | Purpose |
+|----------|---------|
+| `ARCHITECTURE.md` | System architecture |
+| `CHANGELOG.md` | Release history |
+| `ROADMAP.md` | Future roadmap |
+| `CONTRIBUTING.md` | Contribution guide |
+| `SECURITY.md` | Security policy |
+| `CODE_OF_CONDUCT.md` | Community guidelines |
+| `docs/plugin_guide.md` | Plugin development |
+| `docs/scripting_guide.md` | Native scripting |
+| `docs/configuration_guide.md` | Configuration |
+| `docs/testing_guide.md` | Testing guide |
 
 ---
 
@@ -296,10 +310,10 @@ pytest --cov=rshx --cov-report=term-missing -v
 
 Current quality metrics:
 
-* **563 automated tests**
-* **94% overall coverage**
-* **100% coverage across core business logic**
-* Extensive regression and edge-case testing
+- **650 automated tests**
+- **95% overall coverage**
+- **100% coverage across core business logic**
+- Extensive regression and interactive testing
 
 ---
 
@@ -326,10 +340,14 @@ rshx/
 │   └── testing_guide.md
 │
 ├── rshx/
-│   ├── __init__.py          # Single version source
-│   ├── __main__.py          # CLI entry point
+│   ├── __init__.py
+│   ├── __main__.py
 │   ├── commands/
 │   ├── core/
+│   │   ├── input_dispatcher.py
+│   │   ├── command_queue.py
+│   │   ├── confirmation.py
+│   │   └── ...
 │   ├── plugins/
 │   ├── scripts/
 │   └── utils/
@@ -341,30 +359,44 @@ rshx/
 
 # Development Progress
 
-| Version    | Milestone                                       | Status        |
-| ---------- | ----------------------------------------------- | ------------- |
-| **v0.1.0** | Sprint 0 — Foundation                           | ✅ Complete    |
-| **v0.2.0** | Sprint 1 — Interactive UX                       | ✅ Complete    |
-| **v0.3.0** | Sprint 2 — Pipelines & Redirection              | ✅ Complete    |
-| **v0.4.0** | Sprint 3 — Shell Environment                    | ✅ Complete    |
-| **v0.5.0** | Sprint 4 — Configuration & Personalization      | ✅ Complete    |
-| **v0.6.0** | Sprint 5 — Plugin Framework                     | ✅ Complete    |
-| **v0.7.0** | Sprint 6 — Native Scripting                     | ✅ Complete    |
-| **v0.8.0** | Release Sprint 1 — Product Hardening            | ✅ Complete    |
-| **v0.8.3** | Release Sprint 1.1 — Release Polish *(Current)* | ✅ In Progress |
+| Version | Milestone | Status |
+|----------|-----------|--------|
+| **v0.1.0** | Sprint 0 — Foundation | ✅ Complete |
+| **v0.2.0** | Sprint 1 — Interactive UX | ✅ Complete |
+| **v0.3.0** | Sprint 2 — Pipelines & Redirection | ✅ Complete |
+| **v0.4.0** | Sprint 3 — Shell Environment | ✅ Complete |
+| **v0.5.0** | Sprint 4 — Configuration & Personalization | ✅ Complete |
+| **v0.6.0** | Sprint 5 — Plugin Framework | ✅ Complete |
+| **v0.7.0** | Sprint 6 — Native Scripting | ✅ Complete |
+| **v0.8.0** | Release Sprint 1 — Product Hardening | ✅ Complete |
+| **v0.8.4** | Release Sprint 1.1 — Release Polish | ✅ Complete |
+| **v0.9.5** | Release Sprint 2 — Interactive Experience | ✅ Complete |
 
 ---
 
 # Current Status
 
-* **Current Version:** v0.8.3
-* **Branch:** `main`
-* **Python:** 3.13+
-* **Tests:** 563 Passing
-* **Coverage:** 94%
-* **License:** MIT
+- **Current Version:** v0.9.5
+- **Branch:** `main`
+- **Python:** 3.13+
+- **Tests:** 650 Passing
+- **Coverage:** 95%
+- **License:** MIT
 
-RSHX has completed its planned feature roadmap and is currently focused on final release polish before Version 1.0. Remaining work includes cross-system validation, packaging improvements, and a final release readiness review.
+RSHX has completed all planned feature and usability milestones. The project is now entering the final Version 1.0 preparation phase, focusing on cross-system validation, packaging verification, and release readiness.
+
+---
+
+# Road to Version 1.0
+
+Remaining activities before Version 1.0:
+
+- Cross-machine validation
+- Final packaging verification
+- Plugin loading verification for packaged installs
+- Documentation review
+- Release candidate testing
+- Version 1.0 readiness review
 
 ---
 
@@ -398,6 +430,6 @@ See the `LICENSE` file for complete details.
 
 Engineering Student • Software Developer • Systems Programming Enthusiast
 
-RSHX is a long-term engineering project exploring modern shell architecture through incremental, engineering-driven development. The project emphasizes clean design, extensibility, automated testing, and release discipline while serving as a practical platform for learning systems programming concepts.
+RSHX is a long-term engineering project exploring modern shell architecture through incremental, engineering-driven development. It serves both as a practical shell and as a platform for understanding parsing, execution, extensibility, scripting, and software architecture.
 
 **GitHub:** https://github.com/raghavendrashivam474/rshx
