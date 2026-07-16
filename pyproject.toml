@@ -4,20 +4,44 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "rshx"
-version = "0.1.0"
-description = "RSHX - Raghav Shell eXtended"
+version = "0.8.0"
+description = "RSHX - Raghav Shell eXtended. A lightweight extensible shell written in Python."
 readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Raghavendra Singh", email = "raghavendrashivam474@gmail.com" }
+]
 requires-python = ">=3.12"
 dependencies = [
     "prompt_toolkit>=3.0.47",
     "colorama>=0.4.6",
+    "tomli-w>=1.0.0",
+]
+keywords = ["shell", "terminal", "cli", "repl"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Shells",
 ]
 
 [project.scripts]
 rshx = "main:main"
+
+[project.urls]
+Homepage = "https://github.com/raghavendrashivam474/rshx"
+Repository = "https://github.com/raghavendrashivam474/rshx"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rshx*"]

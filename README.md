@@ -1,271 +1,162 @@
-﻿RSHX --- Raghav Shell eXtended
-A lightweight, extensible, cross-platform command-line shell written in
-Python.
-RSHX is a long-term engineering project focused on understanding how
-modern command-line shells work by building one from first principles.
-Rather than reproducing existing shells feature-for-feature, RSHX
-evolves through structured engineering sprints with a strong emphasis on
-clean architecture, modularity, automated testing, and extensibility.
+﻿# RSHX - Raghav Shell eXtended
+
+A lightweight, extensible command-line shell written in Python.
+
+[![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 ---
-Vision
-RSHX is designed around four engineering principles:
-⚙️ Built from First Principles
-🧩 Modular by Design
-🧪 Engineering Driven
-🚀 Extensible for the Future
-Every sprint introduces one major architectural capability while
-preserving backward compatibility and maintaining clean separation of
-concerns.
-The long-term vision is to evolve RSHX into a modern developer shell
-supporting plugins, scripting, workflow automation, personalization, and
-AI-assisted development.
+
+## Features
+
+| Feature | Description |
+|---------|-------------|
+| Interactive REPL | prompt_toolkit with history and completion |
+| Pipelines | Multi-stage command composition |
+| Redirection | Output overwrite, append, and input redirect |
+| Aliases | Persistent command shortcuts |
+| Variables | Environment variable expansion |
+| Persistent Config | TOML configuration at ~/.rshx/config.toml |
+| Themes | default, dark, light |
+| Plugin Framework | Extensible command system |
+| Scripting | Native .rshx workflow scripts |
+
 ---
-Current Architecture
-``` text
-                           User
-                            │
-                            ▼
-                   Prompt Toolkit UI
-                            │
-        ┌───────────────────┼────────────────────┐
-        ▼                   ▼                    ▼
- Command History     Auto Completion      Prompt Renderer
-                            │
-                            ▼
-               Configuration Manager
-        ┌────────────┬──────────────┬─────────────┐
-        ▼            ▼              ▼             ▼
-    Theme      Prompt Config    Alias Store   Environment Store
-                            │
-                            ▼
-                 Startup Command Loader
-                            │
-                            ▼
-                 Command Preprocessor
-                            │
-          ┌─────────────────┴─────────────────┐
-          ▼                                   ▼
-    Alias Resolver                   Variable Resolver
-                            │
-                            ▼
-                       Tokenizer
-                            ▼
-                     Command Parser
-                            ▼
-                 Abstract Syntax Tree
-                            ▼
-                  Command Executor
-                            │
-         ┌──────────────────┼──────────────────┐
-         ▼                  ▼                  ▼
-    Built-in Engine   Pipeline Engine   Process Manager
-                            │
-                     Redirect Manager
-                            ▼
-                    Operating System
-```
----
-Features
-Core Shell
-Interactive REPL powered by `prompt_toolkit`
-Dynamic shell prompt
-Built-in command execution
-External command execution
-Persistent working directory
-Cross-platform command execution
-Productivity
-Persistent command history
-History navigation
-Auto suggestions
-Built-in completion
-Filesystem completion
-Windows path completion
-Contextual help
-Improved error reporting
-Command Composition
-AST-driven parsing
-Multi-stage pipelines
-Input redirection
-Output redirection
-Output append
-Structured execution planning
-Shell Environment
-Session and persistent aliases
-Alias expansion
-Session and persistent environment variables
-Variable expansion
-Command preprocessing
-Alias support inside pipelines
-Variable expansion inside pipelines
-Built-in and external command integration
-Configuration & Personalization
-TOML configuration
-Automatic configuration loading
-Automatic persistence
-Theme system
-Prompt customization
-Git branch prompt support
-Startup commands
-Configuration validation
-Recovery from corrupted configuration
-Default configuration generation
-Engineering
-Configuration Manager
-Theme Manager
-Prompt Configuration Manager
-Alias Manager
-Environment Manager
-AST execution engine
-Pipeline engine
-Redirect abstraction
-Process abstraction
-Cross-platform parser
-Comprehensive automated regression tests
----
-Quick Start
-Prerequisites
-Python 3.13+
-Git
-Installation
-``` powershell
+
+## Quick Start
+
+\\\powershell
 git clone https://github.com/raghavendrashivam474/rshx.git
-
 Set-Location rshx
-
 python -m venv .venv
-
 .\.venv\Scripts\Activate.ps1
-
-pip install -r requirements-dev.txt
-
+pip install -r requirements.txt
 python main.py
-```
+\\\
+
+### Install as Package
+
+\\\powershell
+pip install -e .
+rshx
+\\\
+
 ---
-Built-in Commands
-Command            Description
+
+## Built-in Commands
+
+| Command | Description |
+|---------|-------------|
+| help [command] | Show help |
+| clear | Clear screen |
+| pwd | Print working directory |
+| cd [path] | Change directory |
+| alias [name=value] | Manage aliases |
+| unalias name | Remove alias |
+| set [NAME=value] | Manage variables |
+| unset NAME | Remove variable |
+| env [NAME] | Display variables |
+| theme [name] | Set/display theme |
+| startup [add/remove/list] | Manage startup commands |
+| config | Show config file path |
+| plugin [list/info/enable/disable/reload] | Manage plugins |
+| run script.rshx [args] | Execute script |
+| exit | Exit RSHX |
+
 ---
-`help`             Display help information
-`help <command>`   Display command-specific help
-`pwd`              Print current directory
-`cd`               Change directory
-`clear`            Clear terminal
-`exit`             Exit RSHX
-`alias`            Create or list aliases
-`unalias`          Remove aliases
-`set`              Create environment variables
-`unset`            Remove environment variables
-`env`              Display environment variables
-`theme`            View or change theme
-`startup`          Manage startup commands
-`config`           Display configuration information
+
+## Pipelines and Redirection
+
+\\\
+git log --oneline | find "feat"
+git status > status.txt
+git log >> history.txt
+sort < names.txt
+\\\
+
 ---
-Project Structure
-``` text
-rshx/
-├── main.py
-├── pyproject.toml
-├── requirements.txt
-├── requirements-dev.txt
-├── README.md
-├── LICENSE
-├── .gitattributes
-├── rshx/
-│   ├── commands/
-│   ├── core/
-│   │   ├── alias_manager.py
-│   │   ├── ast.py
-│   │   ├── completer.py
-│   │   ├── config.py
-│   │   ├── environment.py
-│   │   ├── executor.py
-│   │   ├── history.py
-│   │   ├── parser.py
-│   │   ├── pipeline.py
-│   │   ├── preprocessor.py
-│   │   ├── process.py
-│   │   ├── prompt.py
-│   │   ├── prompt_config.py
-│   │   ├── redirect.py
-│   │   ├── repl.py
-│   │   └── theme.py
-│   └── utils/
-└── tests/
-```
+
+## Scripting
+
+\\\
+# release.rshx
+@name Release Check
+@continue_on_error false
+
+pytest
+git status
+git log --oneline -5
+\\\
+
+\\\
+run release.rshx
+\\\
+
 ---
-Running Tests
-``` powershell
+
+## Plugins
+
+Place plugins in rshx/plugins/:
+
+\\\
+rshx/plugins/myplugin/
+    manifest.toml
+    plugin.py
+\\\
+
+\\\
+plugin list
+plugin enable myplugin
+plugin disable myplugin
+\\\
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| ARCHITECTURE.md | System design and module map |
+| CHANGELOG.md | Version history |
+| ROADMAP.md | Future plans |
+| CONTRIBUTING.md | How to contribute |
+| docs/plugin_guide.md | Plugin development |
+| docs/scripting_guide.md | .rshx scripting |
+| docs/configuration_guide.md | Configuration reference |
+| docs/testing_guide.md | Testing guide |
+
+---
+
+## Testing
+
+\\\powershell
 pytest --cov=rshx --cov-report=term-missing -v
-```
+\\\
+
+Current: 539 tests, 94% coverage.
+
 ---
-Test Coverage
-Metric                                     Value
+
+## Project Structure
+
+\\\
+rshx/
+|-- commands/builtins.py       All built-in commands
+|-- core/                      Core shell modules
+|-- plugins/                   Example plugins
+|-- scripts/                   Reference .rshx scripts
+|-- utils/display.py           Terminal output utilities
+tests/                         Test suite
+docs/                          Documentation guides
+main.py                        Entry point
+\\\
+
 ---
-Tests                            355 Passing
-Overall Coverage                         93%
-Business Logic       100% Reachable Coverage
-Remaining uncovered lines belong primarily to the interactive REPL loop
-and terminal integration paths that require interactive testing rather
-than conventional unit tests.
+
+## License
+
+MIT License. See LICENSE for details.
+
 ---
-Development Progress
-Sprint    Focus                             Status
----
-0     Foundation & REPL                 ✅ Complete
-1     History, Completion & UX          ✅ Complete
-2     AST, Pipelines & Redirection      ✅ Complete
-2.1   Platform Compatibility            ✅ Complete
-3     Shell Environment                 ✅ Complete
-4     Configuration & Personalization   ✅ Complete
-5     Plugin Framework                  📋 Planned
-6     RSHX Scripting (.rshx)            📋 Planned
-7     AI-Assisted Developer Workflows   💡 Vision
----
-Development Principles
-Build incrementally through structured sprints.
-Introduce one architectural capability per sprint.
-Prefer clean architecture over rapid feature growth.
-Maintain high automated test coverage.
-Keep modules loosely coupled.
-Separate preprocessing, parsing, execution, and persistence.
-Validate through automated and manual testing.
-Document architectural decisions.
----
-Repository
-Property          Value
----
-Current Release   v0.5.0
-Branch            main
-Python            3.13+
-Tests             355 Passing
-Coverage          93%
-License           MIT
----
-Future Vision
-Planned capabilities include:
-Plugin Framework
-Shell scripting (`.rshx`)
-Workflow automation
-AI-assisted developer commands
-The architecture established through the first five milestones enables
-these features to be implemented as extensions rather than architectural
-rewrites.
----
-Contributing
-Fork the repository.
-Create a feature branch.
-Follow the established architecture.
-Add or update automated tests.
-Ensure all tests pass.
-Update documentation.
-Submit a pull request.
----
-License
-This project is licensed under the MIT License.
----
-Owner
-Raghavendra Singh
-Engineering Student • Software Developer • Systems Programming
-Enthusiast
-RSHX is a long-term engineering project dedicated to exploring modern
-shell architecture through incremental, engineering-driven development.
-GitHub: https://github.com/raghavendrashivam474/rshx
+
+*Raghavendra Singh - RSHX v0.8.0*
