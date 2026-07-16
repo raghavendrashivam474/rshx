@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "rshx"
@@ -30,7 +30,7 @@ classifiers = [
 ]
 
 [project.scripts]
-rshx = "main:main"
+rshx = "rshx.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/raghavendrashivam474/rshx"
