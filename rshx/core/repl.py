@@ -3,11 +3,16 @@ repl.py
 -------
 The Read-Evaluate-Print Loop - the heart of RSHX.
 
-Sprint 5 changes
-----------------
-- ShellState now holds a PluginManager instance.
-- Plugin discovery and loading runs during startup.
-- Plugin shutdown called on exit.
+Release Sprint 2 changes
+------------------------
+- All user input now passes through the InputDispatcher before
+  execution. The REPL no longer communicates directly with the
+  preprocessor. Instead it iterates over the command list returned
+  by the dispatcher.
+- Multi-command paste support: pasting multiple lines executes
+  each line as a separate command in order.
+- Improved Ctrl+C and Ctrl+D handling.
+- Empty input is handled cleanly without warnings.
 """
 
 from dataclasses import dataclass, field
@@ -29,6 +34,7 @@ from rshx.core.parser import parse
 from rshx.core.executor import execute
 from rshx.core.plugin_registry import PluginRegistry
 from rshx.core.plugin_manager import PluginManager
+from rshx.core.input_dispatcher import InputDispatcher
 from rshx.utils.display import (
     print_error,
     print_warning,
@@ -49,12 +55,19 @@ class ShellState:
     Attributes
     ----------
     cwd : Path
+        Current working directory.
     running : bool
+        When False the REPL exits.
     alias_manager : AliasManager
+        Session alias registry.
     environment : Environment
+        Session environment variable registry.
     config_manager : ConfigManager
+        Persistent configuration manager.
     theme : Theme
+        Active display theme.
     plugin_manager : PluginManager
+        Plugin lifecycle manager.
     """
     cwd: Path = field(default_factory=Path.cwd)
     running: bool = True
@@ -73,6 +86,7 @@ class ShellState:
 # ---------------------------------------------------------------------------
 
 def _build_key_bindings() -> KeyBindings:
+    """Tab cycles through completions or triggers completion."""
     bindings = KeyBindings()
 
     @bindings.add("tab")
@@ -91,6 +105,7 @@ def _build_key_bindings() -> KeyBindings:
 # ---------------------------------------------------------------------------
 
 def _initialise_from_config(state: ShellState) -> None:
+    """Restore aliases, variables, and theme from configuration."""
     cfg = state.config_manager.config
     state.theme = get_theme(cfg.theme)
 
@@ -110,16 +125,64 @@ def _initialise_from_config(state: ShellState) -> None:
 def _run_startup_commands(
     state: ShellState,
     preprocessor: Preprocessor,
+    dispatcher: InputDispatcher,
 ) -> None:
+    """Execute startup commands defined in configuration."""
     for raw in state.config_manager.config.startup_commands:
+        _execute_raw(raw, state, preprocessor, dispatcher)
+
+
+# ---------------------------------------------------------------------------
+# Command execution
+# ---------------------------------------------------------------------------
+
+def _execute_raw(
+    raw: str,
+    state: ShellState,
+    preprocessor: Preprocessor,
+    dispatcher: InputDispatcher,
+) -> None:
+    """
+    Dispatch a raw input string through the full execution pipeline.
+
+    Used for both interactive input and startup commands.
+
+    Parameters
+    ----------
+    raw : str
+        Raw command string from the prompt or startup config.
+    state : ShellState
+        Current shell state.
+    preprocessor : Preprocessor
+        Active preprocessor with alias and variable access.
+    dispatcher : InputDispatcher
+        Active input dispatcher for classification.
+    """
+    result = dispatcher.dispatch(raw)
+
+    if result.is_empty():
+        return
+
+    for command in result.commands:
+        if not state.running:
+            break
+
         try:
-            expanded, warnings = preprocessor.process(raw)
-            for warning in warnings:
-                print_warning(warning)
-            pipeline = parse(expanded)
-            execute(pipeline, state)
+            expanded, warnings = preprocessor.process(command)
         except Exception as exc:
-            print_error(f"Startup command failed: '{raw}' - {exc}")
+            print_error(f"Preprocessor error: {exc}")
+            continue
+
+        for warning in warnings:
+            print_warning(warning)
+
+        try:
+            pipeline = parse(expanded)
+        except ValueError as exc:
+            print_error(str(exc))
+            continue
+
+        execute(pipeline, state)
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +194,6 @@ def run_shell() -> None:
     initialise_display()
     print_banner()
 
-    # Load configuration
     config_manager = ConfigManager()
     config_manager.load()
 
@@ -139,20 +201,17 @@ def run_shell() -> None:
     for error in errors:
         print_warning(error)
 
-    # Build plugin infrastructure
     registry = PluginRegistry()
     plugin_manager = PluginManager(
         registry=registry,
         config_manager=config_manager,
     )
 
-    # Build shell state
     state = ShellState(
         config_manager=config_manager,
         plugin_manager=plugin_manager,
     )
 
-    # Restore persistent state
     _initialise_from_config(state)
 
     preprocessor = Preprocessor(
@@ -160,11 +219,11 @@ def run_shell() -> None:
         environment=state.environment,
     )
 
-    # Discover and load plugins
+    dispatcher = InputDispatcher()
+
     plugin_manager.discover_and_load_all()
 
-    # Execute startup commands
-    _run_startup_commands(state, preprocessor)
+    _run_startup_commands(state, preprocessor, dispatcher)
 
     completer = RshxCompleter(cwd_provider=lambda: state.cwd)
 
@@ -188,30 +247,16 @@ def run_shell() -> None:
             )
 
         except KeyboardInterrupt:
+            # Ctrl+C - cancel current line, return to clean prompt
             print()
             continue
 
         except EOFError:
+            # Ctrl+D - clean exit
             print()
             break
 
-        try:
-            expanded, warnings = preprocessor.process(raw_input)
-        except Exception as exc:
-            print_error(f"Preprocessor error: {exc}")
-            continue
-
-        for warning in warnings:
-            print_warning(warning)
-
-        try:
-            pipeline = parse(expanded)
-        except ValueError as exc:
-            print_error(str(exc))
-            continue
-
-        execute(pipeline, state)
+        _execute_raw(raw_input, state, preprocessor, dispatcher)
         completer.update_cwd(state.cwd)
 
-    # Shutdown plugins cleanly
     plugin_manager.shutdown_all()
