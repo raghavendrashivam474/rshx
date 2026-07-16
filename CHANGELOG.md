@@ -13,7 +13,21 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Version 1.0 release candidate
 - Cross-system validation
 - Final repository polish
+## [0.9.5] - 2026-07 - Release Sprint 2, Milestone 5
 
+### Added
+- Confirmation prompt for `startup remove` before removing persistent startup commands
+- 3 new tests for startup remove confirmation behaviour
+
+### Changed
+- Version bumped to 0.9.5 in `__init__.py` and `pyproject.toml`
+- Banner now displays v0.9.5
+
+### Fixed
+- Double "Goodbye!" message on exit — `cmd_exit` no longer prints its own message
+- Goodbye message now printed once by the REPL loop on clean exit via `exit` or Ctrl+D
+
+---
 ---
 ## [0.9.4] - 2026-07 - Release Sprint 2, Milestone 4
 
