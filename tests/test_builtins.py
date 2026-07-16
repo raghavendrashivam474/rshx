@@ -1,6 +1,6 @@
 ﻿"""
 test_builtins.py
-Unit tests for rshx.commands.builtins - Sprint 6.
+Unit tests for rshx.commands.builtins - Release Sprint 2.
 """
 
 import os
@@ -144,6 +144,7 @@ class TestCmdAlias:
     def test_alias_creates_and_persists(self, state, capsys):
         cmd_alias(["gs=git status"], state)
         assert state.alias_manager.get("gs") == "git status"
+        assert state.config_manager.config.aliases.get("gs") == "git status"
 
     def test_alias_no_args_lists(self, state, capsys):
         state.alias_manager.set("gs", "git status")
@@ -180,11 +181,20 @@ class TestCmdUnalias:
     def test_unalias_removes_and_persists(self, state, capsys):
         state.alias_manager.set("gs", "git status")
         state.config_manager.save_alias("gs", "git status")
-        cmd_unalias(["gs"], state)
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=True):
+            cmd_unalias(["gs"], state)
         assert state.alias_manager.get("gs") is None
+        assert "gs" not in state.config_manager.config.aliases
+
+    def test_unalias_cancelled_by_user(self, state, capsys):
+        state.alias_manager.set("gs", "git status")
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=False):
+            cmd_unalias(["gs"], state)
+        assert state.alias_manager.get("gs") == "git status"
 
     def test_unalias_missing_error(self, state, capsys):
-        cmd_unalias(["missing"], state)
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=True):
+            cmd_unalias(["missing"], state)
         assert "Error" in capsys.readouterr().out
 
     def test_unalias_no_args_error(self, state, capsys):
@@ -196,6 +206,7 @@ class TestCmdSet:
     def test_set_creates_and_persists(self, state, capsys):
         cmd_set(["EDITOR=code"], state)
         assert state.environment.get("EDITOR") == "code"
+        assert state.config_manager.config.environment.get("EDITOR") == "code"
 
     def test_set_no_args_lists_empty(self, state, capsys):
         cmd_set([], state)
@@ -223,11 +234,20 @@ class TestCmdUnset:
     def test_unset_removes_and_persists(self, state, capsys):
         state.environment.set("EDITOR", "code")
         state.config_manager.save_variable("EDITOR", "code")
-        cmd_unset(["EDITOR"], state)
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=True):
+            cmd_unset(["EDITOR"], state)
         assert state.environment.get("EDITOR") is None
+        assert "EDITOR" not in state.config_manager.config.environment
+
+    def test_unset_cancelled_by_user(self, state, capsys):
+        state.environment.set("EDITOR", "code")
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=False):
+            cmd_unset(["EDITOR"], state)
+        assert state.environment.get("EDITOR") == "code"
 
     def test_unset_missing_error(self, state, capsys):
-        cmd_unset(["MISSING"], state)
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=True):
+            cmd_unset(["MISSING"], state)
         assert "Error" in capsys.readouterr().out
 
     def test_unset_no_args_error(self, state, capsys):
@@ -259,6 +279,7 @@ class TestCmdTheme:
     def test_theme_sets_valid_theme(self, state, capsys):
         cmd_theme(["dark"], state)
         assert state.theme.name == "dark"
+        assert state.config_manager.config.theme == "dark"
 
     def test_theme_invalid_prints_error(self, state, capsys):
         cmd_theme(["rainbow"], state)

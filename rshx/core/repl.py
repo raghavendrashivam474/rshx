@@ -3,16 +3,9 @@ repl.py
 -------
 The Read-Evaluate-Print Loop - the heart of RSHX.
 
-Release Sprint 2 changes
-------------------------
-- All user input now passes through the InputDispatcher before
-  execution. The REPL no longer communicates directly with the
-  preprocessor. Instead it iterates over the command list returned
-  by the dispatcher.
-- Multi-command paste support: pasting multiple lines executes
-  each line as a separate command in order.
-- Improved Ctrl+C and Ctrl+D handling.
-- Empty input is handled cleanly without warnings.
+Enhancements:
+- Better Ctrl+C handling to reset the prompt buffer.
+- Robust execution loop through the input dispatcher.
 """
 
 from dataclasses import dataclass, field
@@ -43,32 +36,8 @@ from rshx.utils.display import (
 )
 
 
-# ---------------------------------------------------------------------------
-# Shell state
-# ---------------------------------------------------------------------------
-
 @dataclass
 class ShellState:
-    """
-    Mutable state for the lifetime of the shell session.
-
-    Attributes
-    ----------
-    cwd : Path
-        Current working directory.
-    running : bool
-        When False the REPL exits.
-    alias_manager : AliasManager
-        Session alias registry.
-    environment : Environment
-        Session environment variable registry.
-    config_manager : ConfigManager
-        Persistent configuration manager.
-    theme : Theme
-        Active display theme.
-    plugin_manager : PluginManager
-        Plugin lifecycle manager.
-    """
     cwd: Path = field(default_factory=Path.cwd)
     running: bool = True
     alias_manager: AliasManager = field(default_factory=AliasManager)
@@ -81,12 +50,7 @@ class ShellState:
     ))
 
 
-# ---------------------------------------------------------------------------
-# Key bindings
-# ---------------------------------------------------------------------------
-
 def _build_key_bindings() -> KeyBindings:
-    """Tab cycles through completions or triggers completion."""
     bindings = KeyBindings()
 
     @bindings.add("tab")
@@ -100,12 +64,7 @@ def _build_key_bindings() -> KeyBindings:
     return bindings
 
 
-# ---------------------------------------------------------------------------
-# Startup initialisation
-# ---------------------------------------------------------------------------
-
 def _initialise_from_config(state: ShellState) -> None:
-    """Restore aliases, variables, and theme from configuration."""
     cfg = state.config_manager.config
     state.theme = get_theme(cfg.theme)
 
@@ -127,14 +86,9 @@ def _run_startup_commands(
     preprocessor: Preprocessor,
     dispatcher: InputDispatcher,
 ) -> None:
-    """Execute startup commands defined in configuration."""
     for raw in state.config_manager.config.startup_commands:
         _execute_raw(raw, state, preprocessor, dispatcher)
 
-
-# ---------------------------------------------------------------------------
-# Command execution
-# ---------------------------------------------------------------------------
 
 def _execute_raw(
     raw: str,
@@ -142,55 +96,28 @@ def _execute_raw(
     preprocessor: Preprocessor,
     dispatcher: InputDispatcher,
 ) -> None:
-    """
-    Dispatch a raw input string through the full execution pipeline.
-
-    Used for both interactive input and startup commands.
-
-    Parameters
-    ----------
-    raw : str
-        Raw command string from the prompt or startup config.
-    state : ShellState
-        Current shell state.
-    preprocessor : Preprocessor
-        Active preprocessor with alias and variable access.
-    dispatcher : InputDispatcher
-        Active input dispatcher for classification.
-    """
     result = dispatcher.dispatch(raw)
-
     if result.is_empty():
         return
 
     for command in result.commands:
         if not state.running:
             break
-
         try:
             expanded, warnings = preprocessor.process(command)
-        except Exception as exc:
-            print_error(f"Preprocessor error: {exc}")
-            continue
-
-        for warning in warnings:
-            print_warning(warning)
-
-        try:
+            for warning in warnings:
+                print_warning(warning)
+            
             pipeline = parse(expanded)
-        except ValueError as exc:
-            print_error(str(exc))
-            continue
+            execute(pipeline, state)
+        except KeyboardInterrupt:
+            print("\nCommand interrupted.")
+            break
+        except Exception as exc:
+            print_error(f"Unexpected error: {exc}")
 
-        execute(pipeline, state)
-
-
-# ---------------------------------------------------------------------------
-# REPL
-# ---------------------------------------------------------------------------
 
 def run_shell() -> None:
-    """Start and run the RSHX interactive shell."""
     initialise_display()
     print_banner()
 
@@ -202,31 +129,16 @@ def run_shell() -> None:
         print_warning(error)
 
     registry = PluginRegistry()
-    plugin_manager = PluginManager(
-        registry=registry,
-        config_manager=config_manager,
-    )
-
-    state = ShellState(
-        config_manager=config_manager,
-        plugin_manager=plugin_manager,
-    )
-
+    plugin_manager = PluginManager(registry=registry, config_manager=config_manager)
+    state = ShellState(config_manager=config_manager, plugin_manager=plugin_manager)
     _initialise_from_config(state)
 
-    preprocessor = Preprocessor(
-        alias_manager=state.alias_manager,
-        environment=state.environment,
-    )
-
+    preprocessor = Preprocessor(state.alias_manager, state.environment)
     dispatcher = InputDispatcher()
-
     plugin_manager.discover_and_load_all()
-
     _run_startup_commands(state, preprocessor, dispatcher)
 
     completer = RshxCompleter(cwd_provider=lambda: state.cwd)
-
     session = PromptSession(
         history=get_history(),
         completer=completer,
@@ -237,7 +149,7 @@ def run_shell() -> None:
 
     while state.running:
         try:
-            raw_input: str = session.prompt(
+            raw_input = session.prompt(
                 build_prompt(
                     cwd=state.cwd,
                     theme=state.theme,
@@ -245,18 +157,14 @@ def run_shell() -> None:
                     show_git_branch=config_manager.config.show_git_branch,
                 )
             )
+            _execute_raw(raw_input, state, preprocessor, dispatcher)
+            completer.update_cwd(state.cwd)
 
         except KeyboardInterrupt:
-            # Ctrl+C - cancel current line, return to clean prompt
-            print()
+            # Handle Ctrl+C at the prompt level
             continue
-
         except EOFError:
-            # Ctrl+D - clean exit
-            print()
+            print("\nGoodbye!")
             break
-
-        _execute_raw(raw_input, state, preprocessor, dispatcher)
-        completer.update_cwd(state.cwd)
 
     plugin_manager.shutdown_all()

@@ -2,10 +2,6 @@
 builtins.py
 -----------
 Implements all built-in shell commands.
-
-Sprint 6 additions
-------------------
-- run command to execute .rshx script files
 """
 
 import os
@@ -13,6 +9,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rshx.core.theme import get_theme, list_themes, is_valid_theme
+from rshx.core.confirmation import confirm_destructive
 from rshx.utils.display import (
     print_output,
     print_success,
@@ -24,10 +21,6 @@ from rshx.utils.display import (
 if TYPE_CHECKING:
     from rshx.core.repl import ShellState
 
-
-# ---------------------------------------------------------------------------
-# Help data
-# ---------------------------------------------------------------------------
 
 HELP_DATA: dict[str, dict[str, str]] = {
     "help": {
@@ -105,7 +98,7 @@ HELP_DATA: dict[str, dict[str, str]] = {
     "startup": {
         "description": "Manage startup commands.",
         "usage":       "startup [add|remove|list] [command]",
-        "examples":    "startup list\n  startup add alias gs=git status",
+        "examples":    "startup list\n  startup add alias gs=git status\n  startup remove alias gs=git status",
         "notes":       "Startup commands run automatically when RSHX launches.",
     },
     "config": {
@@ -117,7 +110,7 @@ HELP_DATA: dict[str, dict[str, str]] = {
     "plugin": {
         "description": "Manage RSHX plugins.",
         "usage":       "plugin [list|info|enable|disable|reload] [name]",
-        "examples":    "plugin list\n  plugin info hello\n  plugin enable hello",
+        "examples":    "plugin list\n  plugin info hello\n  plugin enable hello\n  plugin disable hello",
         "notes":       "Use 'plugin list' to see all loaded plugins.",
     },
     "run": {
@@ -131,10 +124,6 @@ HELP_DATA: dict[str, dict[str, str]] = {
     },
 }
 
-
-# ---------------------------------------------------------------------------
-# Built-in implementations
-# ---------------------------------------------------------------------------
 
 def cmd_help(args: list[str], shell_state: "ShellState") -> None:
     if args:
@@ -274,6 +263,9 @@ def cmd_unalias(args: list[str], shell_state: "ShellState") -> None:
         print_error("unalias: requires a name argument.")
         return
     name = args[0]
+    if not confirm_destructive("remove alias", name):
+        print_info("  Operation cancelled.")
+        return
     try:
         shell_state.alias_manager.remove(name)
         shell_state.config_manager.delete_alias(name)
@@ -316,6 +308,9 @@ def cmd_unset(args: list[str], shell_state: "ShellState") -> None:
         print_error("unset: requires a name argument.")
         return
     name = args[0]
+    if not confirm_destructive("remove environment variable", name):
+        print_info("  Operation cancelled.")
+        return
     try:
         shell_state.environment.remove(name)
         shell_state.config_manager.delete_variable(name)
@@ -417,7 +412,6 @@ def cmd_config(args: list[str], shell_state: "ShellState") -> None:
 
 def cmd_plugin(args: list[str], shell_state: "ShellState") -> None:
     pm = getattr(shell_state, "plugin_manager", None)
-
     if pm is None:
         print_error("Plugin manager not available.")
         return
@@ -486,22 +480,12 @@ def cmd_plugin(args: list[str], shell_state: "ShellState") -> None:
             print_error(f"plugin reload: plugin '{args[1]}' failed to reload.")
         return
 
-    print_error(
-        f"plugin: unknown subcommand '{args[0]}'. "
-        "Use: list | info | enable | disable | reload"
-    )
+    print_error(f"plugin: unknown subcommand '{args[0]}'.")
 
 
 def cmd_run(args: list[str], shell_state: "ShellState") -> None:
-    """
-    Execute a .rshx script file.
-
-    Coordinates the Script Loader, Script Parser, Script Runtime,
-    and result display. Contains no scripting engine logic itself.
-    """
     if not args:
-        print_error("run: requires a script path.")
-        print_info("  Usage: run <script.rshx> [arg1 arg2 ...]")
+        print_error("run: requires a script path.", suggestion="Usage: run <script.rshx> [arg1 ...]")
         return
 
     script_path = args[0]
@@ -517,42 +501,26 @@ def cmd_run(args: list[str], shell_state: "ShellState") -> None:
         print_error(f"run: {error}")
         return
 
-    node, parse_errors = parse_script(
-        loaded.source,
-        script_path=str(loaded.path),
-    )
-
+    node, parse_errors = parse_script(loaded.source, script_path=str(loaded.path))
     if parse_errors:
         for pe in parse_errors:
             if "Unknown directive" in pe.message:
                 print_warning(pe.format())
             else:
                 print_error(pe.format())
-        critical = [e for e in parse_errors if "Unknown directive" not in e.message]
-        if critical:
+        if [e for e in parse_errors if "Unknown directive" not in e.message]:
             return
 
     if node.is_empty():
         print_info(f"  Script '{script_path}' contains no commands.")
         return
 
-    preprocessor = Preprocessor(
-        alias_manager=shell_state.alias_manager,
-        environment=shell_state.environment,
-    )
-
-    result = run_script(
-        node=node,
-        shell_state=shell_state,
-        preprocessor=preprocessor,
-        script_args=script_args,
-    )
-
+    preprocessor = Preprocessor(shell_state.alias_manager, shell_state.environment)
+    result = run_script(node, shell_state, preprocessor, script_args)
     _display_script_result(result)
 
 
 def _display_script_result(result) -> None:
-    """Format and display a ScriptResult."""
     print_output("")
     print_output(f"  Script: {result.script_name}")
     print_output("  " + "-" * 40)
@@ -562,19 +530,14 @@ def _display_script_result(result) -> None:
     print_output(f"  Duration          : {result.duration:.2f}s")
 
     if result.success:
-        print_success("  Result: SUCCESS")
+        print_success("Result: SUCCESS")
     else:
-        print_error("  Result: FAILED")
+        print_error("Result: FAILED")
         for error in result.errors:
             print_output("")
             print_error(error.format())
-
     print_output("")
 
-
-# ---------------------------------------------------------------------------
-# Registry
-# ---------------------------------------------------------------------------
 
 BUILTIN_REGISTRY: dict[str, callable] = {
     "help":    cmd_help,
