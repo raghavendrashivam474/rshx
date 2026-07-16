@@ -1,4 +1,4 @@
-"""
+﻿"""
 command_queue.py
 ----------------
 Executes an ordered sequence of commands through the RSHX pipeline.
@@ -14,16 +14,9 @@ Responsibilities
 - Track execution results for each command.
 - Return a structured QueueResult summarising the run.
 
-This module owns no shell state and performs no I/O of its own.
-All output is produced by the preprocessor, parser, and executor
-as they process each command normally.
-
 Stop-on-failure behaviour
 -------------------------
 By default the queue halts when any command raises an exception.
-This matches standard shell script semantics where an unexpected
-error should not allow subsequent commands to run blindly.
-
 KeyboardInterrupt is always treated as an immediate halt regardless
 of the stop_on_failure setting.
 """
@@ -140,14 +133,12 @@ class CommandQueue:
         Parameters
         ----------
         commands : list[str]
-            Ordered list of command strings. Each string should be
-            a single command as produced by the InputDispatcher.
+            Ordered list of command strings.
 
         Returns
         -------
         QueueResult
-            Summary of execution including per-command results and
-            whether execution stopped before all commands ran.
+            Summary of execution including per-command results.
         """
         queue_result = QueueResult()
 
@@ -176,9 +167,6 @@ class CommandQueue:
     def _run_one(self, command: str) -> CommandResult:
         """
         Execute a single command string.
-
-        Applies preprocessing, parses the result, and executes it.
-        Catches exceptions and returns a structured CommandResult.
 
         Parameters
         ----------
@@ -209,7 +197,11 @@ class CommandQueue:
             )
 
         except Exception as exc:
-            print_error(f"Unexpected error: {exc}")
+            print_error(
+                f"Failed to execute: '{command}'.",
+                reason=str(exc),
+                suggestion="Check the command syntax and try again.",
+            )
             return CommandResult(
                 command=command,
                 success=False,

@@ -161,3 +161,52 @@ class TestExecutePipelineRouting:
         with patch("rshx.core.executor.execute_pipeline") as mock_exec:
             execute(pipeline, state)
         mock_exec.assert_called_once_with(pipeline, state.cwd)
+
+class TestExecutorErrorMessages:
+    def test_builtin_exception_includes_suggestion(self, state: ShellState, capsys):
+        def broken(args, shell_state):
+            raise RuntimeError("something went wrong")
+        pipeline = single_pipeline("help")
+        with patch("rshx.core.executor.BUILTIN_REGISTRY", {"help": broken}):
+            execute(pipeline, state)
+        captured = capsys.readouterr().out
+        assert "Suggestion" in captured
+
+    def test_builtin_exception_includes_reason(self, state: ShellState, capsys):
+        def broken(args, shell_state):
+            raise RuntimeError("something went wrong")
+        pipeline = single_pipeline("help")
+        with patch("rshx.core.executor.BUILTIN_REGISTRY", {"help": broken}):
+            execute(pipeline, state)
+        captured = capsys.readouterr().out
+        assert "Reason" in captured
+
+    def test_permission_error_includes_suggestion(self, state: ShellState, capsys):
+        pipeline = single_pipeline("somebin")
+        with patch("rshx.core.executor.subprocess.run", side_effect=PermissionError):
+            execute(pipeline, state)
+        captured = capsys.readouterr().out
+        assert "Suggestion" in captured
+
+    def test_permission_error_includes_reason(self, state: ShellState, capsys):
+        pipeline = single_pipeline("somebin")
+        with patch("rshx.core.executor.subprocess.run", side_effect=PermissionError):
+            execute(pipeline, state)
+        captured = capsys.readouterr().out
+        assert "Reason" in captured
+
+    def test_unexpected_exception_includes_suggestion(self, state: ShellState, capsys):
+        pipeline = single_pipeline("somebin")
+        with patch("rshx.core.executor.subprocess.run", side_effect=OSError("disk error")):
+            execute(pipeline, state)
+        captured = capsys.readouterr().out
+        assert "Suggestion" in captured
+
+    def test_nonzero_exit_prints_warning_not_error(self, state: ShellState, capsys):
+        pipeline = single_pipeline("somecommand")
+        mock_result = MagicMock()
+        mock_result.returncode = 2
+        with patch("rshx.core.executor.subprocess.run", return_value=mock_result):
+            execute(pipeline, state)
+        captured = capsys.readouterr().out
+        assert "Warning" in captured

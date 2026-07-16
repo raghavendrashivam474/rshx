@@ -103,12 +103,6 @@ def _tokenize(text: str) -> list[str]:
     Uses shlex for word splitting with posix=False on Windows so
     that backslashes in paths are preserved literally.
 
-    Quote preservation
-    ------------------
-    Quotes are preserved on argument tokens so that external commands
-    such as Windows find receive correctly quoted arguments.
-    Quotes are only stripped from the command name token itself.
-
     Parameters
     ----------
     text : str
@@ -124,8 +118,6 @@ def _tokenize(text: str) -> list[str]:
     ValueError
         On shlex tokenisation failure (e.g. unclosed quotes).
     """
-    # Insert spaces around operators so shlex sees them as separate tokens
-    # Handle >> before > to preserve two-character operator
     text = text.replace(">>", " >> ")
     text = text.replace(">", " > ").replace(" >  > ", " >> ")
     text = text.replace("<", " < ")
@@ -138,18 +130,12 @@ def _tokenize(text: str) -> list[str]:
     except ValueError as exc:
         raise ValueError(f"Parse error - {exc}") from exc
 
-    # Return tokens as-is — quote stripping is applied selectively
-    # in _parse_stage only where needed
     return raw_tokens
 
 
 def _strip_quotes(token: str) -> str:
     """
     Remove surrounding quotes from a single token.
-
-    Used only for the command name and filenames — not for
-    arguments passed to external commands which may require
-    their quotes to be preserved.
 
     Parameters
     ----------
@@ -176,9 +162,6 @@ def _build_stages(tokens: list[str]) -> list[RedirectNode]:
     """
     Convert a flat token list into an ordered list of RedirectNodes.
 
-    Splits on PIPE tokens to find stage boundaries, then delegates
-    each segment to _parse_stage.
-
     Parameters
     ----------
     tokens : list[str]
@@ -201,7 +184,8 @@ def _build_stages(tokens: list[str]) -> list[RedirectNode]:
         if token == PIPE:
             if not current:
                 raise ValueError(
-                    "Parse error - unexpected pipe operator '|'."
+                    "Parse error - unexpected '|' with no command before it. "
+                    "Each pipe stage must have a command on both sides."
                 )
             segments.append(current)
             current = []
@@ -210,7 +194,8 @@ def _build_stages(tokens: list[str]) -> list[RedirectNode]:
 
     if not current:
         raise ValueError(
-            "Parse error - trailing pipe operator '|' with no command."
+            "Parse error - '|' at end of input with no command after it. "
+            "Add a command after the pipe or remove the trailing '|'."
         )
     segments.append(current)
 
@@ -220,17 +205,6 @@ def _build_stages(tokens: list[str]) -> list[RedirectNode]:
 def _parse_stage(tokens: list[str]) -> RedirectNode:
     """
     Parse a single pipeline stage token segment into a RedirectNode.
-
-    Scans tokens for redirect operators and extracts:
-    - The command name (quotes stripped) and arguments (quotes preserved)
-    - stdin filename after <
-    - stdout filename after > or >>
-
-    Quote handling
-    --------------
-    - Command name : quotes stripped so 'git' and git are equivalent
-    - Arguments    : quotes preserved so find "feat" passes "feat" to find
-    - Filenames    : quotes stripped so > "out.txt" works correctly
 
     Parameters
     ----------
@@ -261,7 +235,8 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
             i += 1
             if i >= len(tokens):
                 raise ValueError(
-                    "Parse error - '>>' operator requires a filename."
+                    "Parse error - '>>' requires a filename. "
+                    "Example: git log >> output.txt"
                 )
             stdout_file = _strip_quotes(tokens[i])
             stdout_mode = RedirectType.OUTPUT_APPEND
@@ -270,7 +245,8 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
             i += 1
             if i >= len(tokens):
                 raise ValueError(
-                    "Parse error - '>' operator requires a filename."
+                    "Parse error - '>' requires a filename. "
+                    "Example: git status > output.txt"
                 )
             stdout_file = _strip_quotes(tokens[i])
             stdout_mode = RedirectType.OUTPUT_OVERWRITE
@@ -279,7 +255,8 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
             i += 1
             if i >= len(tokens):
                 raise ValueError(
-                    "Parse error - '<' operator requires a filename."
+                    "Parse error - '<' requires a filename. "
+                    "Example: sort < input.txt"
                 )
             stdin_file = _strip_quotes(tokens[i])
 
@@ -290,11 +267,10 @@ def _parse_stage(tokens: list[str]) -> RedirectNode:
 
     if not cmd_tokens:
         raise ValueError(
-            "Parse error - redirect operator with no command."
+            "Parse error - redirect operator with no command. "
+            "A command must appear before any redirect operator."
         )
 
-    # Strip quotes from command name only
-    # Arguments preserve their quotes for external commands
     name = _strip_quotes(cmd_tokens[0]).lower()
     args = cmd_tokens[1:]
 

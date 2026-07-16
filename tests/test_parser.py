@@ -142,3 +142,34 @@ class TestStripQuotes:
 
     def test_mismatched_quotes_unchanged(self):
         assert _strip_quotes("\"hello'") == "\"hello'"
+        
+class TestParseErrorMessages:
+    def test_trailing_pipe_message_suggests_fix(self):
+        with pytest.raises(ValueError) as exc_info:
+            parse("git status |")
+        assert "Add a command after the pipe" in str(exc_info.value)
+
+    def test_leading_pipe_message_explains_cause(self):
+        with pytest.raises(ValueError) as exc_info:
+            parse("| git status")
+        assert "no command before it" in str(exc_info.value)
+
+    def test_missing_redirect_out_filename_shows_example(self):
+        with pytest.raises(ValueError) as exc_info:
+            parse("dir >")
+        assert "Example" in str(exc_info.value)
+
+    def test_missing_redirect_append_filename_shows_example(self):
+        with pytest.raises(ValueError) as exc_info:
+            parse("dir >>")
+        assert "Example" in str(exc_info.value)
+
+    def test_missing_redirect_in_filename_shows_example(self):
+        with pytest.raises(ValueError) as exc_info:
+            parse("sort <")
+        assert "Example" in str(exc_info.value)
+
+    def test_redirect_with_no_command_explains_cause(self):
+        with pytest.raises(ValueError) as exc_info:
+            parse("> output.txt")
+        assert "command must appear before" in str(exc_info.value)

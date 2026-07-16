@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 from rshx.commands.builtins import BUILTIN_REGISTRY
 from rshx.core.ast import PipelineNode, RedirectNode
 from rshx.core.pipeline import execute_pipeline
-from rshx.utils.display import print_error, print_info, suggest_command
+from rshx.utils.display import print_error, print_warning, suggest_command
 
 if TYPE_CHECKING:
     from rshx.core.repl import ShellState
@@ -81,7 +81,9 @@ def _execute_builtin(
         handler(command.args, shell_state)
     except Exception as exc:
         print_error(
-            f"Built-in '{command.name}' raised an unexpected error: {exc}"
+            f"Built-in '{command.name}' failed unexpectedly.",
+            reason=str(exc),
+            suggestion=f"Run 'help {command.name}' for correct usage.",
         )
 
 
@@ -106,8 +108,8 @@ def _execute_external(
         )
 
         if result.returncode != 0:
-            print_info(
-                f"Process '{command.name}' exited with code {result.returncode}."
+            print_warning(
+                f"'{command.name}' exited with code {result.returncode}."
             )
 
     except FileNotFoundError:
@@ -115,7 +117,15 @@ def _execute_external(
         suggest_command(command.name, candidates)
 
     except PermissionError:
-        print_error(f"Permission denied: cannot execute '{command.name}'.")
+        print_error(
+            f"Permission denied: '{command.name}'.",
+            reason="The file exists but cannot be executed.",
+            suggestion="Check file permissions or run with elevated privileges.",
+        )
 
     except Exception as exc:
-        print_error(f"Unexpected error while running '{command.name}': {exc}")
+        print_error(
+            f"Failed to run '{command.name}'.",
+            reason=str(exc),
+            suggestion="Check the command name and arguments are correct.",
+        )
