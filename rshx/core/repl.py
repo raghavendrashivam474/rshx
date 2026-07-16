@@ -23,11 +23,12 @@ from rshx.core.preprocessor import Preprocessor
 from rshx.core.history import get_history
 from rshx.core.completer import RshxCompleter
 from rshx.core.prompt_config import build_prompt
-from rshx.core.parser import parse
-from rshx.core.executor import execute
+# from rshx.core.parser import parse
+# from rshx.core.executor import execute
 from rshx.core.plugin_registry import PluginRegistry
 from rshx.core.plugin_manager import PluginManager
 from rshx.core.input_dispatcher import InputDispatcher
+from rshx.core.command_queue import CommandQueue
 from rshx.utils.display import (
     print_error,
     print_warning,
@@ -100,21 +101,8 @@ def _execute_raw(
     if result.is_empty():
         return
 
-    for command in result.commands:
-        if not state.running:
-            break
-        try:
-            expanded, warnings = preprocessor.process(command)
-            for warning in warnings:
-                print_warning(warning)
-            
-            pipeline = parse(expanded)
-            execute(pipeline, state)
-        except KeyboardInterrupt:
-            print("\nCommand interrupted.")
-            break
-        except Exception as exc:
-            print_error(f"Unexpected error: {exc}")
+    queue = CommandQueue(preprocessor=preprocessor, shell_state=state)
+    queue.run(result.commands)
 
 
 def run_shell() -> None:
