@@ -1,9 +1,10 @@
-﻿# RSHX - Raghav Shell eXtended
+# RSHX - Raghav Shell eXtended
 
 A lightweight, extensible command-line shell written in Python.
 
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.8.0-orange.svg)](CHANGELOG.md)
 
 ---
 
@@ -25,21 +26,19 @@ A lightweight, extensible command-line shell written in Python.
 
 ## Quick Start
 
-\\\powershell
-git clone https://github.com/raghavendrashivam474/rshx.git
-Set-Location rshx
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python main.py
-\\\
+### Install from source
 
-### Install as Package
+    git clone https://github.com/raghavendrashivam474/rshx.git
+    cd rshx
+    python -m venv .venv
+    .venv\Scripts\Activate.ps1
+    pip install -r requirements.txt
+    python main.py
 
-\\\powershell
-pip install -e .
-rshx
-\\\
+### Install as package
+
+    pip install -e .
+    rshx
 
 ---
 
@@ -56,7 +55,7 @@ rshx
 | set [NAME=value] | Manage variables |
 | unset NAME | Remove variable |
 | env [NAME] | Display variables |
-| theme [name] | Set/display theme |
+| theme [name] | Set or display theme |
 | startup [add/remove/list] | Manage startup commands |
 | config | Show config file path |
 | plugin [list/info/enable/disable/reload] | Manage plugins |
@@ -67,30 +66,31 @@ rshx
 
 ## Pipelines and Redirection
 
-\\\
-git log --oneline | find "feat"
-git status > status.txt
-git log >> history.txt
-sort < names.txt
-\\\
+    git log --oneline | find "feat"
+    git status > status.txt
+    git log >> history.txt
+    sort < names.txt
 
 ---
 
 ## Scripting
 
-\\\
-# release.rshx
-@name Release Check
-@continue_on_error false
+    # release.rshx
+    @name Release Check
+    @continue_on_error false
 
-pytest
-git status
-git log --oneline -5
-\\\
+    pytest
+    git status
+    git log --oneline -5
 
-\\\
-run release.rshx
-\\\
+Run using a variable for convenience:
+
+    set SCRIPTS=C:\Projects\rshx\rshx\scripts
+    run %SCRIPTS%\release.rshx
+
+Add to startup so the variable is always available:
+
+    startup add set SCRIPTS=C:\Projects\rshx\rshx\scripts
 
 ---
 
@@ -98,17 +98,22 @@ run release.rshx
 
 Place plugins in rshx/plugins/:
 
-\\\
-rshx/plugins/myplugin/
-    manifest.toml
-    plugin.py
-\\\
+    rshx/plugins/myplugin/
+        manifest.toml
+        plugin.py
 
-\\\
-plugin list
-plugin enable myplugin
-plugin disable myplugin
-\\\
+    plugin list
+    plugin enable myplugin
+    plugin disable myplugin
+
+---
+
+## Configuration
+
+Configuration file: ~/.rshx/config.toml
+
+Created automatically on first launch.
+See docs/configuration_guide.md for the full reference.
 
 ---
 
@@ -129,27 +134,25 @@ plugin disable myplugin
 
 ## Testing
 
-\\\powershell
-pytest --cov=rshx --cov-report=term-missing -v
-\\\
+    pytest --cov=rshx --cov-report=term-missing -v
 
-Current: 539 tests, 94% coverage.
+Current: 563 tests, 94% coverage.
 
 ---
 
 ## Project Structure
 
-\\\
-rshx/
-|-- commands/builtins.py       All built-in commands
-|-- core/                      Core shell modules
-|-- plugins/                   Example plugins
-|-- scripts/                   Reference .rshx scripts
-|-- utils/display.py           Terminal output utilities
-tests/                         Test suite
-docs/                          Documentation guides
-main.py                        Entry point
-\\\
+    rshx/
+    |-- __init__.py            Single version source
+    |-- __main__.py            CLI entry point
+    |-- commands/builtins.py   All built-in commands
+    |-- core/                  Core shell modules
+    |-- plugins/               Example plugins
+    |-- scripts/               Reference .rshx scripts
+    |-- utils/display.py       Terminal output utilities
+    tests/                     Test suite
+    docs/                      Documentation guides
+    main.py                    Legacy entry point
 
 ---
 

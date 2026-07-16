@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 All notable changes to RSHX are documented in this file.
 
@@ -7,16 +7,34 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [Unreleased]
+
+### Planned
+- Version 1.0 release candidate
+- Cross-system validation
+- Final repository polish
+
+---
+
 ## [0.8.0] - 2025-07 - Release Sprint 1
 
-### Changed
+### Added
 - Single authoritative version source via rshx/__init__.py
-- Version banner now reads from __version__ at runtime
-- pyproject.toml updated with complete package metadata and CLI entry point
-- Documentation refresh across all guides
+- rshx/__main__.py as package entry point
+- CLI entry point: rshx = rshx.__main__:main
+- Full documentation suite: README, CHANGELOG, ARCHITECTURE,
+  CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, ROADMAP
+- docs/ directory with plugin, scripting, configuration, testing guides
+- 24 new edge case tests in test_edge_cases.py
+- Improved plugin error messages with recovery hints
+- Improved ScriptError.format() with filename and recovery tip
+- pyproject.toml with complete package metadata
 
 ### Fixed
-- Version banner mismatch across sprints (permanent fix)
+- Version banner mismatch - now reads from __version__ at runtime
+- pyproject.toml BOM issue - rewritten without BOM
+- pyproject.toml build backend - changed to setuptools.build_meta
+- CLI entry point - moved from main.py to rshx.__main__:main
 
 ---
 
@@ -35,15 +53,14 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - Positional argument %1 bare syntax expansion
-- Version banner corrected to v0.7.0
+- Environment variable regex updated for digit-only names
 
 ---
 
 ## [0.6.0] - 2025-07 - Sprint 5
 
 ### Added
-- Plugin Framework
-- Plugin Manager with full lifecycle management
+- Plugin Framework with discovery, loading, lifecycle management
 - Plugin Registry integrated into command execution
 - Plugin API for safe plugin-shell communication
 - Plugin configuration via config.toml
@@ -59,7 +76,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 - Persistent configuration via ~/.rshx/config.toml
-- Theme system with default, dark, light themes
+- Theme system: default, dark, light
 - Git branch display in prompt
 - Startup commands
 - theme, startup, config built-in commands
@@ -77,6 +94,7 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 - CMD built-ins work via aliases on Windows
+- shell=True applied consistently across executor paths
 
 ---
 
@@ -90,9 +108,10 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Graceful syntax error handling
 
 ### Fixed
-- Windows backslash path handling
+- Windows backslash path handling in parser
 - Tab completion inline behaviour
-- CMD built-in support in pipelines
+- CMD built-in support in pipelines via shell=True
+- Quoted arguments preserved for external commands
 
 ---
 
@@ -102,9 +121,13 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Command history with Up/Down arrow navigation
 - Persistent history saved to ~/.rshx/history
 - Tab completion for built-in commands and paths
-- Dynamic two-line prompt
+- Dynamic two-line prompt with configurable display
 - Enhanced help system with per-command detail
-- Did-you-mean suggestions
+- Did-you-mean suggestions for unknown commands
+
+### Fixed
+- Windows path backslash handling in completer
+- Case-insensitive path completion
 
 ---
 
@@ -115,5 +138,5 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Built-in commands: help, clear, pwd, cd, exit
 - External command execution via subprocess
 - Working directory state management
-- Display utilities with colorama
+- Display utilities with colorama for coloured output
 - Input parsing using shlex
