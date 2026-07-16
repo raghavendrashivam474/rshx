@@ -1,4 +1,4 @@
-﻿"""
+"""
 test_script_coverage.py
 Targeted tests for remaining coverage gaps in scripting modules.
 """
@@ -77,7 +77,8 @@ class TestStartupRemove:
     def test_startup_remove_success(self, state, capsys):
         """Covers builtins.py lines 399-405."""
         state.config_manager.add_startup_command("alias gs=git status")
-        cmd_startup(["remove", "alias", "gs=git", "status"], state)
+        with patch("rshx.commands.builtins.confirm_destructive", return_value=True):
+            cmd_startup(["remove", "alias", "gs=git", "status"], state)
         assert "alias gs=git status" not in state.config_manager.config.startup_commands
         assert "removed" in capsys.readouterr().out.lower()
 
