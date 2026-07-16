@@ -15,6 +15,22 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Final repository polish
 
 ---
+## [0.9.4] - 2026-07 - Release Sprint 2, Milestone 4
+
+### Changed
+- executor: built-in failures now include reason and help suggestion
+- executor: permission errors now include reason and privilege suggestion
+- executor: unexpected errors now include reason and syntax suggestion
+- executor: non-zero exit code uses print_warning instead of print_info
+- parser: redirect errors now include usage examples
+- parser: pipe errors now explain the cause and how to fix
+- pipeline: validation errors now explain position constraints
+- command_queue: execution failures now include reason and syntax suggestion
+
+### Added
+- 12 new tests verifying actionable error message content across executor and parser
+
+---
 ## [0.9.3] - 2026-07 - Release Sprint 2, Milestone 3
 
 ### Added
