@@ -15,6 +15,19 @@ Versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Final repository polish
 
 ---
+## [0.9.3] - 2026-07 - Release Sprint 2, Milestone 3
+
+### Added
+- _handle_interrupt helper responds to Ctrl+C at the prompt with a clear message and Ctrl+D hint
+- _handle_eof helper responds to Ctrl+D by setting state.running=False for a clean loop exit
+- 6 new tests for _handle_interrupt and _handle_eof in test_repl.py
+
+### Changed
+- Goodbye message moved after the main loop so plugin shutdown always executes on exit
+- Ctrl+C at the prompt now prints a visible message instead of silently continuing
+- Ctrl+D now triggers the same clean shutdown path as the exit built-in
+
+---
 
 ## [0.9.2] - 2026-07 - Release Sprint 2, Milestone 2
 
